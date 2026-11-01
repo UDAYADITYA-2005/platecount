@@ -44,3 +44,8 @@ This file is part of the proof that all work happened during the hackathon.
   across prompts by IoU > 0.5 or centre inside, keeping higher confidence. data/test_plate.jpg from cache: dot 55,
   speck 56, blob 14, merged 69, $0.0000. No ground truth. Known miss: yellow blob (0.66) lost to a dot (0.75)
   at IoU 0.05, so the centre rule undercounts by 1 here. pytest: 51 passed.
+- 21:49 IST, merge rule tightened (IoU > 0.5, or centre inside and areas within 2.5x); small boxes inside large ones are
+  kept and returned as "nested". data/test_plate.jpg from cache: merged 70, nested 3 (was 69). AGAR loader and frozen
+  split: 39 plates, 16 dev / 23 test, seed 20261101, committed before any benchmark call. Minimal bench/run.py on the
+  first 10 dev plates, whole image at 2048 px: MAE 4.6, total 344 found vs 376 true, 7 under, 3 over, $0.0750. "blob"
+  returned 0 on all 10. pytest: 68 passed.
