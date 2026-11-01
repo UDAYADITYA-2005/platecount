@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# PlateCount commit guard. Blocks secrets, dataset files and big files from reaching the public repo.
+# Installed by: git config core.hooksPath scripts/hooks   (setup scripts do this for you)
+set -euo pipefail
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for f in $staged; do
+  case "$f" in
+    .env|.env.*)
+      [ "$f" = ".env.example" ] && continue
+      echo "BLOCKED: $f holds secrets."; fail=1 ;;
+    data/*|.cache/*|results/raw/*)
+      echo "BLOCKED: $f is dataset, cache or raw output."; fail=1 ;;
+    *.jpg|*.jpeg|*.JPG|*.JPEG|*.png|*.PNG|*.tif|*.tiff|*.bmp|*.heic|*.HEIC)
+      case "$f" in
+        docs/img/*) ;;  # allowed: your own screenshots and diagrams, EXIF stripped
+        *) echo "BLOCKED: $f is an image outside docs/img/."; fail=1 ;;
+      esac ;;
+  esac
+  if [ -f "$f" ]; then
+    size=$(wc -c < "$f")
+    if [ "$size" -gt 5000000 ]; then echo "BLOCKED: $f is over 5 MB."; fail=1; fi
+  fi
+done
+
+# Block the real API key if it appears anywhere in the staged changes.
+if [ -f .env ]; then
+  key=$(grep -E '^MODEL_API_KEY=' .env | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')
+  if [ -n "$key" ] && git diff --cached -U0 | grep -qF -- "$key"; then
+    echo "BLOCKED: your MODEL_API_KEY value appears in the staged changes."; fail=1
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit stopped. Unstage with: git restore --staged <file>"
+  exit 1
+fi

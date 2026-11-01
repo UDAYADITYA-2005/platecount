@@ -1,0 +1,21 @@
+# secrets
+.env
+.env.local
+# datasets and caches (AGAR is CC BY-NC: never commit it)
+data/
+.cache/
+results/raw/
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# personal Claude Code files
+CLAUDE.local.md
+.claude/settings.local.json
+# images: only your own EXIF-stripped screenshots in docs/img/ are committed
+*.jpg
+*.jpeg
+*.png
+*.heic
+!docs/img/**
