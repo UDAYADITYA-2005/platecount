@@ -40,7 +40,7 @@ This file is part of the proof that all work happened during the hackathon.
 - 19:54 IST, meta/client.py and meta/sam.py: retries, disk cache, run cost, store:false always, parser built
   from real fixtures. Live segment() on data/test_plate.jpg: dot 55, speck 56, blob 14, unmerged, $0.0075.
   Second run: 3 cache hits, $0.0000. pytest: 36 passed. Removed scripts/record_sam_fixture.py.
-- 15:27 IST, counting.py merge step (no tiling): drop boxes over 5% of image or touching the border, then merge
+- 20:57 IST, counting.py merge step (no tiling): drop boxes over 5% of image or touching the border, then merge
   across prompts by IoU > 0.5 or centre inside, keeping higher confidence. data/test_plate.jpg from cache: dot 55,
   speck 56, blob 14, merged 69, $0.0000. No ground truth. Known miss: yellow blob (0.66) lost to a dot (0.75)
   at IoU 0.05, so the centre rule undercounts by 1 here. pytest: 51 passed.
