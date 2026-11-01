@@ -37,3 +37,6 @@ This file is part of the proof that all work happened during the hackathon.
   | 2 boxes, no text | 2 | not run |
 
   Crop column is the dense crop unless noted.
+- 19:54 IST, meta/client.py and meta/sam.py: retries, disk cache, run cost, store:false always, parser built
+  from real fixtures. Live segment() on data/test_plate.jpg: dot 55, speck 56, blob 14, unmerged, $0.0075.
+  Second run: 3 cache hits, $0.0000. pytest: 36 passed. Removed scripts/record_sam_fixture.py.
