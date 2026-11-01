@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from platecount.counting import iou, is_candidate, merge_prompts, same_colony
+from platecount.counting import (
+    iou,
+    is_candidate,
+    merge_prompts,
+    merge_tiles,
+    same_colony,
+    tile_grid,
+    to_image_coords,
+)
 from platecount.meta.sam import SamInstance, parse_stream
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -122,3 +130,65 @@ def test_no_instances_gives_no_colonies():
     result = merge_prompts({"colony": fixture("sam_raw_1.txt")})
     assert result.colonies == []
     assert result.nested == 0
+
+
+TILE_A, TILE_B = (0, 0, 1000, 1000), (800, 0, 1800, 1000)  # 200 px overlap
+FULL = (1800, 1000)
+
+
+def tile_box(x1: int, y1: int, x2: int, y2: int, size: int = 1000, c: float = 0.5) -> SamInstance:
+    return SamInstance(id=0, x1=x1, y1=y1, x2=x2, y2=y2, w=size, h=size, confidence=c, mask="")
+
+
+def test_tile_grid_is_3x3_and_covers_the_image_with_20_percent_overlap():
+    tiles = tile_grid(3775, 4000)
+    assert len(tiles) == 9
+    assert (tiles[0][0], tiles[0][1]) == (0, 0)
+    assert (tiles[-1][2], tiles[-1][3]) == (3775, 4000)
+    assert all(t[2] - t[0] == tiles[0][2] - tiles[0][0] for t in tiles)
+    width = tiles[0][2] - tiles[0][0]
+    assert width <= 2048
+    for row in range(0, 9, 3):
+        for a, b in zip(tiles[row:row + 2], tiles[row + 1:row + 3]):
+            assert a[2] - b[0] >= 0.2 * width - 1
+
+
+def test_to_image_coords_adds_the_tile_offset():
+    mapped = to_image_coords(tile_box(10, 20, 19, 39), (800, 300, 1800, 1300), 3000, 2000)
+    assert (mapped.x1, mapped.y1, mapped.x2, mapped.y2) == (810, 320, 819, 339)
+    assert (mapped.w, mapped.h) == (3000, 2000)
+
+
+def test_to_image_coords_scales_a_tile_sam_saw_downscaled():
+    mapped = to_image_coords(tile_box(100, 100, 109, 109, size=500), (0, 0, 1000, 1000), 2000, 2000)
+    assert (mapped.x1, mapped.y1, mapped.x2, mapped.y2) == (200, 200, 219, 219)
+
+
+def test_colony_in_the_overlap_is_counted_once():
+    found = [{"dot": [tile_box(900, 500, 919, 519)]}, {"dot": [tile_box(101, 501, 120, 520)]}]
+    assert len(merge_tiles([TILE_A, TILE_B], found, *FULL).colonies) == 1
+
+
+def test_duplicate_merges_across_prompts_and_tiles():
+    found = [
+        {"dot": [tile_box(900, 500, 919, 519)], "speck": [tile_box(901, 500, 920, 519)]},
+        {"dot": [tile_box(100, 500, 119, 519)]},
+    ]
+    assert len(merge_tiles([TILE_A, TILE_B], found, *FULL).colonies) == 1
+
+
+def test_same_tile_coordinates_in_different_tiles_stay_apart():
+    found = [{"dot": [tile_box(100, 500, 119, 519)]}, {"dot": [tile_box(100, 500, 119, 519)]}]
+    assert len(merge_tiles([TILE_A, TILE_B], found, *FULL).colonies) == 2
+
+
+def test_colony_cut_by_a_tile_edge_is_taken_from_the_tile_that_sees_it_whole():
+    cut = tile_box(990, 500, 999, 519, c=0.9)  # right half of it is outside tile A
+    whole = tile_box(190, 500, 209, 519, c=0.5)  # same colony, x 990-1009 in the image
+    result = merge_tiles([TILE_A, TILE_B], [{"dot": [cut]}, {"dot": [whole]}], *FULL)
+    assert [(b.x1, b.x2) for b in result.colonies] == [(990, 1009)]
+
+
+def test_size_limit_is_against_the_full_image_not_the_tile():
+    big = tile_box(100, 100, 349, 349)  # 6.25% of the tile, 3.5% of the 1800 x 1000 image
+    assert len(merge_tiles([TILE_A], [{"blob": [big]}], *FULL).colonies) == 1

@@ -54,13 +54,22 @@ class _Response(BaseModel):
     output: list[_Item]
 
 
-def prepare_image(path: Path) -> bytes:
-    """Return the image as upright RGB JPEG, longest side at most MAX_SIDE, no EXIF."""
-    img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+def load_image(path: Path) -> Image.Image:
+    """Return the image upright, RGB and at full resolution."""
+    return ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+
+
+def encode_jpeg(img: Image.Image) -> bytes:
+    """Return a JPEG with the longest side at most MAX_SIDE and no EXIF."""
+    img = img.copy()
     img.thumbnail((MAX_SIDE, MAX_SIDE))
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=90)
     return buf.getvalue()
+
+
+def prepare_image(path: Path) -> bytes:
+    return encode_jpeg(load_image(path))
 
 
 def _output_text(raw: str) -> str:

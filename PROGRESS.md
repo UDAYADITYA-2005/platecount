@@ -74,3 +74,7 @@ This file is part of the proof that all work happened during the hackathon.
   | 8386 | 24 | 18 | 0 | 18 | 0 | -6 |
 - 21:56 IST, Gate A check (due 23:00): PASS. bench.run on 10 dev AGAR plates from cache returned a count for all 10:
   MAE 4.60, 0 API calls, $0.0000. pytest: 72 passed. Replaces the 17:03 FAIL.
+- 16:31 IST, tiling added to counting.py: 3x3, 20% overlap, boxes touching a tile edge dropped, then mapped to full-image
+  coordinates and merged with the same rule. Plate 518 only, 3775x4000, 9 tiles of 1452x1539: merged 256 vs true 298
+  (-42), was 63 (-235) whole-image. 247 of 256 boxes match an AGAR label; 51 labels missed, 9 boxes unmatched. "dot"
+  did most of the work ("speck" returned 0 on 5 of 9 tiles). $0.0450, 18 calls. pytest: 80 passed.
