@@ -66,7 +66,7 @@ data/  .cache/  results/     gitignored
 
 ## Code rules
 
-- Python 3.11+, type hints everywhere, Pydantic models for every API response and report.
+- Python 3.10+, type hints everywhere, Pydantic models for every API response and report.
 - `httpx` for HTTP. Every Meta call goes through `meta/client.py`: disk cache keyed by
   (model, prompt, image hash), retry 429/5xx with backoff, fail fast on 400/401/403/404,
   and add the call's cost to a running counter that is printed at the end of every run.

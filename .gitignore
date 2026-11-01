@@ -10,6 +10,7 @@ results/raw/
 __pycache__/
 *.pyc
 .pytest_cache/
+*.egg-info/
 # personal Claude Code files
 CLAUDE.local.md
 .claude/settings.local.json
