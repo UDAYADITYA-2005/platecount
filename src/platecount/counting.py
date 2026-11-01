@@ -4,10 +4,18 @@ Box coordinates are inclusive pixels: a box from x1=0 to x2=9 is 10 pixels wide.
 """
 from collections.abc import Mapping, Sequence
 
+from pydantic import BaseModel
+
 from platecount.meta.sam import SamInstance
 
 MAX_AREA_FRACTION = 0.05
 MERGE_IOU = 0.5
+MAX_MERGE_AREA_RATIO = 2.5
+
+
+class MergeResult(BaseModel):
+    colonies: list[SamInstance]  # best confidence first; nested boxes included
+    nested: int  # how many colonies sit inside a much larger colony's box, for review
 
 
 def _area(box: SamInstance) -> int:
@@ -30,8 +38,20 @@ def _centre_inside(inner: SamInstance, outer: SamInstance) -> bool:
     )
 
 
+def _much_larger(big: SamInstance, small: SamInstance) -> bool:
+    return _area(big) > MAX_MERGE_AREA_RATIO * _area(small)
+
+
 def same_colony(a: SamInstance, b: SamInstance) -> bool:
-    return iou(a, b) > MERGE_IOU or _centre_inside(a, b) or _centre_inside(b, a)
+    """IoU can't exceed 0.4 above the area ratio limit, so a nested pair never matches here."""
+    if iou(a, b) > MERGE_IOU:
+        return True
+    similar_size = not _much_larger(a, b) and not _much_larger(b, a)
+    return similar_size and (_centre_inside(a, b) or _centre_inside(b, a))
+
+
+def is_nested(small: SamInstance, big: SamInstance) -> bool:
+    return _much_larger(big, small) and _centre_inside(small, big)
 
 
 def is_candidate(box: SamInstance) -> bool:
@@ -41,15 +61,15 @@ def is_candidate(box: SamInstance) -> bool:
     return not (too_large or on_border)
 
 
-def merge_prompts(by_prompt: Mapping[str, Sequence[SamInstance]]) -> list[SamInstance]:
+def merge_prompts(by_prompt: Mapping[str, Sequence[SamInstance]]) -> MergeResult:
     """Filter, then keep the highest-confidence box of each colony, best first.
 
-    Filtering comes first: a plate-sized box holds every colony's centre, so merging it
-    would delete real colonies.
+    Filtering comes first: a plate-sized box would otherwise mark every colony as nested.
     """
     boxes = [box for found in by_prompt.values() for box in found if is_candidate(box)]
     kept: list[SamInstance] = []
     for box in sorted(boxes, key=lambda b: b.confidence, reverse=True):
         if not any(same_colony(box, other) for other in kept):
             kept.append(box)
-    return kept
+    nested = sum(any(is_nested(box, other) for other in kept) for box in kept)
+    return MergeResult(colonies=kept, nested=nested)
