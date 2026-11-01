@@ -12,3 +12,5 @@ This file is part of the proof that all work happened during the hackathon.
   no git remote, scripts/get_agar.py missing. .env exists; key contents not checked.
 - 17:17 IST, package scaffold: empty modules for the CLAUDE.md layout, pyproject.toml, exact pins in
   requirements.txt, Python rule changed to 3.10+. No feature code. pytest: 1 passed (imports every module).
+- 17:24 IST, cfu.py: compute_cfu and FDA range/spreader flags, exact fractions so no float noise reaches
+  the verifier. 27 colonies at 10^-2 with 1 mL -> 2,700.0 CFU/mL. pytest: 19 passed (tests/test_cfu.py + smoke).
