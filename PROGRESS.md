@@ -49,3 +49,26 @@ This file is part of the proof that all work happened during the hackathon.
   split: 39 plates, 16 dev / 23 test, seed 20261101, committed before any benchmark call. Minimal bench/run.py on the
   first 10 dev plates, whole image at 2048 px: MAE 4.6, total 344 found vs 376 true, 7 under, 3 over, $0.0750. "blob"
   returned 0 on all 10. pytest: 68 passed.
+- 21:54 IST, baseline "whole-image, dot+speck": default prompts now dot + speck ("blob" dropped), all 16 dev plates at
+  2048 px. All plates: MAE 18.88, sMAPE 21.8%, within 10% 31.2%. True >= 15 (13 plates): MAE 22.77, sMAPE 21.2%,
+  within 10% 38.5%. Plate 518 (298 true, 63 found) is 235 of the 302 total error. $0.0300, 12 calls, 20 cache hits.
+  bench/metrics.py added. pytest: 72 passed.
+
+  | plate | true | dot | speck | merged | nested | error |
+  |---|---|---|---|---|---|---|
+  | 349 | 99 | 89 | 87 | 89 | 0 | -10 |
+  | 11761 | 54 | 48 | 48 | 49 | 0 | -5 |
+  | 14627 | 12 | 16 | 0 | 16 | 0 | +4 |
+  | 356 | 4 | 0 | 3 | 3 | 0 | -1 |
+  | 14130 | 18 | 15 | 0 | 15 | 2 | -3 |
+  | 5207 | 6 | 7 | 6 | 7 | 0 | +1 |
+  | 12031 | 56 | 51 | 35 | 52 | 4 | -4 |
+  | 5312 | 25 | 27 | 19 | 27 | 0 | +2 |
+  | 736 | 28 | 11 | 27 | 27 | 0 | -1 |
+  | 735 | 74 | 58 | 52 | 59 | 0 | -15 |
+  | 14684 | 55 | 56 | 0 | 55 | 0 | +0 |
+  | 12033 | 24 | 21 | 20 | 21 | 0 | -3 |
+  | 14410 | 37 | 35 | 6 | 33 | 0 | -4 |
+  | 510 | 69 | 62 | 57 | 61 | 0 | -8 |
+  | 518 | 298 | 62 | 36 | 63 | 0 | -235 |
+  | 8386 | 24 | 18 | 0 | 18 | 0 | -6 |

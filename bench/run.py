@@ -5,12 +5,14 @@ Usage: python -m bench.run --split dev --limit 10
 import argparse
 import json
 
+from bench.metrics import summarize
 from bench.split import SPLIT_PATH, load_plates
 from platecount.counting import merge_prompts
 from platecount.meta.client import MetaClient
 from platecount.meta.sam import DEFAULT_PROMPTS, USD_PER_IMAGE, prepare_image, segment
 
 COLUMNS = ("plate", "true", *DEFAULT_PROMPTS, "merged", "nested", "error")
+MIN_COUNTABLE = 15  # FDA BAM Ch. 3 lower bound
 
 
 def row(cells: tuple) -> str:
@@ -31,11 +33,13 @@ def main() -> None:
     print(f"{len(plate_ids)} {args.split} plates, at most ${worst_case:.4f}")
 
     print(row(COLUMNS))
+    pairs = []
     for plate_id in plate_ids:
         plate = plates[plate_id]
         found = segment(client, prepare_image(plate.image))
         merged = merge_prompts(found)
         count = len(merged.colonies)
+        pairs.append((count, plate.true_count))
         print(
             row(
                 (
@@ -48,6 +52,14 @@ def main() -> None:
                 )
             )
         )
+    countable = [pair for pair in pairs if pair[1] >= MIN_COUNTABLE]
+    for label, subset in (("all", pairs), (f"true>={MIN_COUNTABLE}", countable)):
+        if subset:
+            m = summarize(subset)
+            print(
+                f"{label}: {m.plates} plates, MAE {m.mae:.2f}, sMAPE {m.smape:.1f}%, "
+                f"within 10% {m.within_10pct:.1f}%"
+            )
     print(client.cost.summary())
 
 

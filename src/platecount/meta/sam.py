@@ -19,7 +19,7 @@ MODEL = "sam-3.1"
 USD_PER_IMAGE = 0.0025
 MAX_SIDE = 2048
 OPTIONS = {"include_confidence": "true", "mask_encoding": "one_bit"}
-DEFAULT_PROMPTS = ("dot", "speck", "blob")
+DEFAULT_PROMPTS = ("dot", "speck")
 
 # Non-greedy: the mask payload is base85, so it can hold ; = and <, but not |.
 RECORD = re.compile(r"(\d+)<\|box;(.*?)\|><\|mask;(.*?)\|>")
