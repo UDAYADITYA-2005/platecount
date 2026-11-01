@@ -1,0 +1,1 @@
+{"error":{"code":null,"message":"invalid prompt: object prompts cannot be combined with a phrase","param":null,"type":"invalid_request_error"}}
