@@ -20,7 +20,9 @@ from platecount.meta.client import MetaClient
 from platecount.meta.sam import load_image
 
 CREDIT = "AGAR dataset, CC BY-NC 2.0"
-NOTE = "AGAR records no dilution, so 10^-2 and 1 mL here are nominal values."
+NOTE = "AGAR records no dilution, so the CFU/mL estimate uses assumed demo values: 10^-2 and 1 mL."
+CFU_BASIS = "assumed demo values"
+ASSUMED = ["dilution", "volume_ml"]
 SAMPLES = {"5207": "Sparse plate", "12031": "Medium plate", "518": "Dense plate"}
 
 
@@ -38,7 +40,7 @@ def main() -> None:
         with tempfile.TemporaryDirectory() as folder:
             log = EventLog(Path(folder) / "events.jsonl")
             result = run_agent(client, img, NOMINAL_EXPONENT, NOMINAL_ML, log)
-            response = plate_response(None, result, log, [])
+            response = plate_response(None, result, log, ASSUMED)
         if result.report.status != "verified":
             raise SystemExit(f"{plate_id}: {result.report.status}: {result.report.reason}")
         sample = {
@@ -50,6 +52,7 @@ def main() -> None:
             "label": label,
             "credit": CREDIT,
             "note": NOTE,
+            "cfu_basis": CFU_BASIS,
         }
         (out / f"{plate_id}.json").write_text(json.dumps(sample), encoding="utf-8")
         (out / f"{plate_id}.jpg").write_bytes(overlay_jpeg(img, result.boxes))

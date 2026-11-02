@@ -88,8 +88,8 @@ function renderPicture(data, sampleId) {
 
 function renderNotes(data) {
   const notes = [];
-  if (data.assumed.includes("dilution")) notes.push("Dilution not given: undiluted assumed.");
-  if (data.assumed.includes("volume_ml")) notes.push("Volume not given: 1 mL assumed.");
+  if (!data.cfu_basis && data.assumed.includes("dilution")) notes.push("Dilution not given: undiluted assumed.");
+  if (!data.cfu_basis && data.assumed.includes("volume_ml")) notes.push("Volume not given: 1 mL assumed.");
   if (data.true_count !== undefined) notes.push(`AGAR label: ${data.true_count} colonies.`);
   if (data.note) notes.push(data.note);
   if (data.credit) notes.push(data.credit + ".");
@@ -117,6 +117,7 @@ function render(data, sampleId) {
   $("status").className = `status ${report.status}`;
   $("count").textContent = rejected ? "None" : formatted(report.colonies);
   $("cfu").textContent = rejected ? "None" : formatted(report.cfu_per_ml);
+  $("cfu-label").textContent = data.cfu_basis ? `CFU/mL estimate (${data.cfu_basis})` : "CFU/mL estimate";
   renderPicture(data, sampleId);
   renderNotes(data);
   $("flags").replaceChildren(...data.flags.map((flag) => element("li", flag.text)));
