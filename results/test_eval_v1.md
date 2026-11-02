@@ -63,3 +63,57 @@ Spend: policy $0.3850 (154 API calls), agent $0.6394 (90 API calls, 295 cache hi
 - Most of the MAE gain comes from 2 plates, 11924 and 734, where the policy tiled and the agent stayed whole. On 525 the agent got worse.
 - No test plate is in the 151-300 band (largest true count 130), so this says nothing about dense plates.
 - `verified` means every reported number matches a tool output. It does not mean the count is right: 971 is verified and 16 too high.
+
+## 95% bootstrap confidence intervals
+
+From the per-plate table above, with no API calls. 95% percentile intervals, 10,000 resamples of the 23 plates with replacement, seed 20261102.
+Each resample uses the same plates for both variants, so the difference is paired. Formulas are `bench.metrics.summarize`.
+
+| Metric | Agent [95% CI] | Policy [95% CI] | Agent minus policy [95% CI] |
+|---|---|---|---|
+| MAE | 3.78 [2.04, 5.78] | 5.57 [2.43, 9.30] | -1.78 [-5.17, 0.91] |
+| sMAPE | 8.68% [5.04, 13.31] | 11.14% [5.94, 17.06] | -2.47% [-6.98, 0.94] |
+| Within 10% | 73.91% [56.52, 91.30] | 69.57% [52.17, 86.96] | 4.35% [-8.70, 17.39] |
+
+Lower is better for MAE and sMAPE; higher is better for within 10%.
+
+All three paired intervals include 0, so this run does not show that the agent beats the policy. The data fit a real gain and also no gain.
+The intervals are this wide because the 23 plates are few and the difference comes from 4 of them. Dense plates are still untested.
+
+Script, run from the repo root with `src` and `.` on `PYTHONPATH`:
+
+```python
+"""95% percentile bootstrap over plates, from the per-plate table in results/test_eval_v1.md."""
+import random
+from bench.metrics import summarize
+
+SEED, RESAMPLES = 20261102, 10_000
+METRICS = ("mae", "smape", "within_10pct")
+rows = [[c.strip() for c in line.strip("| \n").split("|")]
+        for line in open("results/test_eval_v1.md", encoding="utf-8")
+        if line.startswith("| ") and line.count("|") == 15 and line[2].isdigit()]
+true = [int(r[1]) for r in rows]
+policy = [int(r[3]) for r in rows]
+agent = [int(r[7]) for r in rows]
+
+def stats(found, index):
+    m = summarize([(found[i], true[i]) for i in index])
+    return [getattr(m, name) for name in METRICS]
+
+rng = random.Random(SEED)
+n = len(rows)
+draws = [(stats(agent, ix), stats(policy, ix))
+         for ix in ([rng.randrange(n) for _ in range(n)] for _ in range(RESAMPLES))]
+
+def ci(values):
+    values = sorted(values)
+    return values[round(0.025 * (RESAMPLES - 1))], values[round(0.975 * (RESAMPLES - 1))]
+
+everyone = range(n)
+point_a, point_p = stats(agent, everyone), stats(policy, everyone)
+print("plates", n)
+for k, name in enumerate(METRICS):
+    print(name, "agent", round(point_a[k], 2), ci(d[0][k] for d in draws),
+          "policy", round(point_p[k], 2), ci(d[1][k] for d in draws),
+          "diff", round(point_a[k] - point_p[k], 2), ci(d[0][k] - d[1][k] for d in draws))
+```
