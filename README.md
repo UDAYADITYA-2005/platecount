@@ -8,3 +8,8 @@ An agent built on Muse Spark checks SAM 3.1's segmentation, re-checks doubtful r
 refuses to report any number that no tool produced.
 
 _Full README written on Day 5._
+
+## Data credit
+
+Demo plates and the benchmark use the [AGAR dataset](https://agar.neurosys.com), CC BY-NC 2.0.
+No AGAR files are in this repository: the committed demo results hold numbers and boxes only.
