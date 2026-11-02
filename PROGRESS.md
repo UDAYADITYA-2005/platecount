@@ -78,3 +78,29 @@ This file is part of the proof that all work happened during the hackathon.
   coordinates and merged with the same rule. Plate 518 only, 3775x4000, 9 tiles of 1452x1539: merged 256 vs true 298
   (-42), was 63 (-235) whole-image. 247 of 256 boxes match an AGAR label; 51 labels missed, 9 boxes unmatched. "dot"
   did most of the work ("speck" returned 0 on 5 of 9 tiles). $0.0450, 18 calls. pytest: 80 passed.
+
+## 2026-11-02
+- 02:54 IST, box matching (IoU > 0.3 or centre inside, one-to-one, greedy) and bench.run --variant whole|tiled|both, all 16
+  dev plates. Whole: MAE 18.88, sMAPE 21.8%, precision 0.97, recall 0.65. Tiled: MAE 22.19, sMAPE 54.8%, precision 0.64,
+  recall 0.81: better only on 518. Tiled false positives are specks (median side 9-18 px on 15 of 16 plates; colonies 39-334 px).
+  Rule from dev: tile when whole count >= 56 gives MAE 6.19, sMAPE 13.4%, within 10% 37.5%, fitted on these same plates and
+  not built yet. Image size as the rule: MAE 21.50. $0.6750, 270 calls. pytest: 94 passed.
+
+  | plate | true | whole | tiled | tiled prec | tiled rec |
+  |---|---|---|---|---|---|
+  | 349 | 99 | 89 | 109 | 0.84 | 0.93 |
+  | 11761 | 54 | 49 | 97 | 0.53 | 0.94 |
+  | 14627 | 12 | 16 | 27 | 0.41 | 0.92 |
+  | 356 | 4 | 3 | 27 | 0.00 | 0.00 |
+  | 14130 | 18 | 15 | 15 | 0.73 | 0.61 |
+  | 5207 | 6 | 7 | 44 | 0.14 | 1.00 |
+  | 12031 | 56 | 52 | 79 | 0.63 | 0.89 |
+  | 5312 | 25 | 27 | 69 | 0.35 | 0.96 |
+  | 736 | 28 | 27 | 14 | 0.86 | 0.43 |
+  | 735 | 74 | 59 | 85 | 0.68 | 0.78 |
+  | 14684 | 55 | 55 | 59 | 0.73 | 0.78 |
+  | 12033 | 24 | 21 | 78 | 0.26 | 0.83 |
+  | 14410 | 37 | 33 | 37 | 0.68 | 0.68 |
+  | 510 | 69 | 61 | 71 | 0.85 | 0.87 |
+  | 518 | 298 | 63 | 256 | 0.96 | 0.83 |
+  | 8386 | 24 | 18 | 53 | 0.09 | 0.21 |

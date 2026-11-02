@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from platecount.meta.sam import SamInstance
+
 AGAR_ROOT = Path("data/agar_sample/AGAR_representative")
 SPLIT_PATH = Path(__file__).with_name("split.json")
 SEED = 20261101
@@ -33,6 +35,25 @@ def load_plates(root: Path = AGAR_ROOT) -> dict[str, Plate]:
             raise ValueError(f"two plates named {path.stem}: filenames must identify plates")
         plates[path.stem] = Plate(id=path.stem, image=path.with_suffix(".jpg"), true_count=count)
     return plates
+
+
+def load_labels(plate: Plate, width: int, height: int) -> list[SamInstance]:
+    """Return AGAR's boxes as instances at the image's own size, with inclusive corners."""
+    labels = json.loads(plate.image.with_suffix(".json").read_text(encoding="utf-8"))["labels"]
+    return [
+        SamInstance(
+            id=label["id"],
+            x1=label["x"],
+            y1=label["y"],
+            x2=label["x"] + label["width"] - 1,
+            y2=label["y"] + label["height"] - 1,
+            w=width,
+            h=height,
+            confidence=1.0,
+            mask="",
+        )
+        for label in labels
+    ]
 
 
 def count_band(count: int) -> str:

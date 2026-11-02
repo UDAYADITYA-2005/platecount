@@ -3,7 +3,15 @@ from pathlib import Path
 
 import pytest
 
-from bench.split import SPLIT_PATH, Plate, count_band, dev_quotas, load_plates, make_split
+from bench.split import (
+    SPLIT_PATH,
+    Plate,
+    count_band,
+    dev_quotas,
+    load_labels,
+    load_plates,
+    make_split,
+)
 
 
 def plate(plate_id: str, count: int) -> Plate:
@@ -55,6 +63,15 @@ def test_quotas_sum_to_dev_size_by_largest_remainder():
         "15-150": 12,
         "151-300": 1,
     }
+
+
+def test_load_labels_makes_inclusive_boxes_at_the_image_size(tmp_path):
+    label = {"id": 7, "x": 10, "y": 20, "width": 5, "height": 3, "class": "S.aureus"}
+    (tmp_path / "1.json").write_text(json.dumps({"labels": [label]}), encoding="utf-8")
+    plate_1 = Plate(id="1", image=tmp_path / "1.jpg", true_count=1)
+    [box] = load_labels(plate_1, 3000, 4000)
+    assert (box.x1, box.y1, box.x2, box.y2) == (10, 20, 14, 22)
+    assert (box.w, box.h) == (3000, 4000)
 
 
 def test_split_is_seeded_stratified_and_disjoint():

@@ -39,7 +39,7 @@ def iou(a: SamInstance, b: SamInstance) -> float:
     return overlap / (_area(a) + _area(b) - overlap)
 
 
-def _centre_inside(inner: SamInstance, outer: SamInstance) -> bool:
+def centre_inside(inner: SamInstance, outer: SamInstance) -> bool:
     return (
         outer.x1 <= (inner.x1 + inner.x2) / 2 <= outer.x2
         and outer.y1 <= (inner.y1 + inner.y2) / 2 <= outer.y2
@@ -55,11 +55,11 @@ def same_colony(a: SamInstance, b: SamInstance) -> bool:
     if iou(a, b) > MERGE_IOU:
         return True
     similar_size = not _much_larger(a, b) and not _much_larger(b, a)
-    return similar_size and (_centre_inside(a, b) or _centre_inside(b, a))
+    return similar_size and (centre_inside(a, b) or centre_inside(b, a))
 
 
 def is_nested(small: SamInstance, big: SamInstance) -> bool:
-    return _much_larger(big, small) and _centre_inside(small, big)
+    return _much_larger(big, small) and centre_inside(small, big)
 
 
 def _on_border(box: SamInstance) -> bool:
