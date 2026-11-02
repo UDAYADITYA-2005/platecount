@@ -9,6 +9,7 @@ import re
 from base64 import b64encode
 from collections.abc import Sequence
 from pathlib import Path
+from typing import BinaryIO
 
 from PIL import Image, ImageOps
 from pydantic import BaseModel
@@ -54,9 +55,9 @@ class _Response(BaseModel):
     output: list[_Item]
 
 
-def load_image(path: Path) -> Image.Image:
+def load_image(source: Path | BinaryIO) -> Image.Image:
     """Return the image upright, RGB and at full resolution."""
-    return ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+    return ImageOps.exif_transpose(Image.open(source)).convert("RGB")
 
 
 def encode_jpeg(img: Image.Image, max_side: int = MAX_SIDE) -> bytes:
