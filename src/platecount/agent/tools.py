@@ -98,7 +98,7 @@ def _summary(state: PlateState, previous: int, hits: dict[str, int]) -> dict:
     }
 
 
-def _adopt(state: PlateState, counted: PlateCount) -> ToolResult:
+def adopt(state: PlateState, counted: PlateCount) -> ToolResult:
     """Replace the colony set, as count_plate replaces a whole count with a tiled one."""
     previous = len(state.colonies)
     width, height = state.img.size
@@ -111,11 +111,11 @@ def _adopt(state: PlateState, counted: PlateCount) -> ToolResult:
 
 
 def _segment_whole(state: PlateState, _: NoArgs) -> ToolResult:
-    return _adopt(state, count_whole(state.client, state.img))
+    return adopt(state, count_whole(state.client, state.img))
 
 
 def _segment_tiled(state: PlateState, _: NoArgs) -> ToolResult:
-    return _adopt(state, count_tiled(state.client, state.img))
+    return adopt(state, count_tiled(state.client, state.img))
 
 
 def _recheck_cell(state: PlateState, args: RecheckArgs) -> ToolResult:
