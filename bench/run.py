@@ -1,21 +1,29 @@
-"""Benchmark: whole-image, tiled and policy SAM counts against AGAR counts and boxes.
+"""Benchmark: whole-image, tiled, policy and agent counts against AGAR counts and boxes.
 
-Usage: python -m bench.run --split dev --limit 16 --variant policy
+Usage: python -m bench.run --split dev --limit 16 --variant agent
 """
 import argparse
 import json
-from collections.abc import Callable, Sequence
+import sys
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from typing import NamedTuple
 
 from PIL import Image
 
 from bench.metrics import BoxScore, pool_scores, score_boxes, summarize
-from bench.split import SPLIT_PATH, count_band, load_labels, load_plates
+from bench.split import SPLIT_PATH, Plate, count_band, load_labels, load_plates
+from platecount.agent.events import EventLog
+from platecount.agent.loop import run_agent
 from platecount.counting import GRID, PlateCount, count_plate, count_tiled, count_whole
 from platecount.meta.client import MetaClient
 from platecount.meta.sam import DEFAULT_PROMPTS, USD_PER_IMAGE, load_image
 
 BANDS = ("<15", "15-150", "151-300")
+MAX_RUN_USD = 5.0  # CLAUDE.md: a single run must not exceed this without asking
+# AGAR records no dilutions. Only the count is scored; these just run the full report path.
+NOMINAL_EXPONENT = -2
+NOMINAL_ML = 1.0
 
 
 class PlateResult(NamedTuple):
@@ -52,18 +60,72 @@ def summary_line(label: str, results: Sequence[PlateResult]) -> str:
     )
 
 
+def print_summaries(label: str, results: Sequence[PlateResult]) -> None:
+    print(f"\n{label}")
+    print(summary_line("all", results))
+    for band in BANDS:
+        print(summary_line(band, [r for r in results if count_band(r.true) == band]))
+
+
+def score_cells(result: PlateResult) -> list:
+    error = f"{result.count - result.true:+d}"
+    return [result.count, error, ratio(result.score.precision), ratio(result.score.recall)]
+
+
+def compare_agent(plate_ids: Sequence[str], plates: Mapping[str, Plate], client: MetaClient) -> None:
+    """One row per plate, policy against agent. A rejected plate scores the code's colony set."""
+    print(f"{len(plate_ids)} plates, stops if spend passes ${MAX_RUN_USD:.2f}")
+    columns = ["count", "err", "prec", "rec"]
+    print(row(["plate", "true", *[f"p_{c}" for c in columns], *[f"a_{c}" for c in columns],
+               "status", "cost"]), "| tools")
+    policy: list[PlateResult] = []
+    agent: list[PlateResult] = []
+    statuses: list[str] = []
+    for plate_id in plate_ids:
+        if client.cost.usd > MAX_RUN_USD:
+            sys.exit(f"stopped at ${client.cost.usd:.2f}, over the ${MAX_RUN_USD:.2f} run limit")
+        plate = plates[plate_id]
+        img = load_image(plate.image)
+        labels = load_labels(plate, *img.size)
+        boxes = count_plate(client, img).merged.colonies
+        policy.append(
+            PlateResult(plate.true_count, len(boxes), score_boxes(boxes, labels, *img.size))
+        )
+        result = run_agent(client, img, NOMINAL_EXPONENT, NOMINAL_ML, EventLog.new(plate_id))
+        agent.append(
+            PlateResult(
+                plate.true_count, len(result.boxes), score_boxes(result.boxes, labels, *img.size)
+            )
+        )
+        report = result.report
+        statuses.append(report.status)
+        cells = [plate_id, plate.true_count, *score_cells(policy[-1]), *score_cells(agent[-1])]
+        tools = ",".join(step.removeprefix("segment_") for step in report.steps)
+        print(row([*cells, report.status, f"{report.cost_usd:.4f}"]), "|", tools, flush=True)
+        if report.status != "verified":
+            print(f"  {plate_id}: {report.reason}", flush=True)
+
+    print_summaries("policy", policy)
+    print_summaries("agent", agent)
+    print(f"\nagent status: {dict(Counter(statuses))}")
+    print(client.cost.summary())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     # ponytail: dev only, so a typo can't spend the held-out plates. Add "test" when told to run it.
     parser.add_argument("--split", choices=["dev"], default="dev")
     parser.add_argument("--limit", type=int, default=10)
-    parser.add_argument("--variant", choices=[*VARIANTS, "both"], default="whole")
+    parser.add_argument("--variant", choices=[*VARIANTS, "both", "agent"], default="whole")
     args = parser.parse_args()
 
     variants = ["whole", "tiled"] if args.variant == "both" else [args.variant]
     plate_ids = json.loads(SPLIT_PATH.read_text(encoding="utf-8"))[args.split][: args.limit]
     plates = load_plates()
     client = MetaClient.from_env()
+    if args.variant == "agent":
+        compare_agent(plate_ids, plates, client)
+        return
     images = len(plate_ids) * sum(IMAGES_PER_PLATE[variant] for variant in variants)
     worst_case = images * len(DEFAULT_PROMPTS) * USD_PER_IMAGE
     print(f"{len(plate_ids)} {args.split} plates, at most ${worst_case:.4f} before cache hits")
@@ -90,11 +152,7 @@ def main() -> None:
         print(row(cells), flush=True)
 
     for variant in variants:
-        print(f"\n{variant}")
-        print(summary_line("all", results[variant]))
-        for band in BANDS:
-            subset = [r for r in results[variant] if count_band(r.true) == band]
-            print(summary_line(band, subset))
+        print_summaries(variant, results[variant])
     print(client.cost.summary())
 
 

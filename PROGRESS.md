@@ -111,3 +111,30 @@ This file is part of the proof that all work happened during the hackathon.
 - 12:22 IST, load_labels now leaves out Contamination boxes: box scoring only, truth stays colonies_number. Decided before any
   test split run. Plate 734 (test, the only plate with these labels): 78 labels, 24 Contamination, colonies_number 54, so
   truth already excludes them. No dev plate has any, so dev numbers don't move. post_stream can now take cost from the response.
+- 12:47 IST, agent built: meta/spark.py (stateless loop, cost from token usage), agent/tools.py, events.py, verifier.py, loop.py, bench.run
+  --variant agent. 16 dev plates, live Spark: 16 of 16 verified, 0 fallbacks. Agent MAE 6.12, sMAPE 13.0%, within 10% 37.5%, precision
+  0.91, recall 0.87. Policy MAE 6.19, sMAPE 13.4%, within 10% 37.5%, precision 0.91, recall 0.87. So no real gain: 15 of 16 counts
+  match the policy; the one change is plate 8386 (18 to 19, a recheck_cell). Spark tiled the same 4 plates the 56 rule tiles, and that
+  rule was fitted on these plates, so all of this is in-sample. Run $0.49, about $0.03 a plate, 63 API calls; rerun $0.0000. pytest: 156 passed.
+
+  | plate | true | policy | agent | a_prec | a_rec | status | cost | tools |
+  |---|---|---|---|---|---|---|---|---|
+  | 349 | 99 | 109 | 109 | 0.84 | 0.93 | verified | 0.0000 | whole,tiled,view_overlay,flag,compute_cfu,finish |
+  | 11761 | 54 | 49 | 49 | 1.00 | 0.91 | verified | 0.0329 | whole,view_overlay,compute_cfu,finish |
+  | 14627 | 12 | 16 | 16 | 0.75 | 1.00 | verified | 0.0277 | whole,view_overlay,flag,compute_cfu,finish |
+  | 356 | 4 | 3 | 3 | 1.00 | 0.75 | verified | 0.0378 | whole,view_overlay,recheck_cell,compute_cfu,finish |
+  | 14130 | 18 | 15 | 15 | 1.00 | 0.83 | verified | 0.0262 | whole,view_overlay,flag,compute_cfu,finish |
+  | 5207 | 6 | 7 | 7 | 0.86 | 1.00 | verified | 0.0189 | whole,view_overlay,flag,compute_cfu,finish |
+  | 12031 | 56 | 52 | 52 | 0.98 | 0.91 | verified | 0.0162 | whole,view_overlay,compute_cfu,finish |
+  | 5312 | 25 | 27 | 27 | 0.93 | 1.00 | verified | 0.0315 | whole,view_overlay,flag,compute_cfu,finish |
+  | 736 | 28 | 27 | 27 | 1.00 | 0.96 | verified | 0.0269 | whole,view_overlay,compute_cfu,finish |
+  | 735 | 74 | 85 | 85 | 0.68 | 0.78 | verified | 0.0569 | whole,tiled,view_overlay,flag,compute_cfu,finish |
+  | 14684 | 55 | 55 | 55 | 0.98 | 0.98 | verified | 0.0203 | whole,view_overlay,compute_cfu,finish |
+  | 12033 | 24 | 21 | 21 | 1.00 | 0.88 | verified | 0.0142 | whole,view_overlay,compute_cfu,finish |
+  | 14410 | 37 | 33 | 33 | 0.97 | 0.86 | verified | 0.0406 | whole,view_overlay,flag,compute_cfu,finish |
+  | 510 | 69 | 71 | 71 | 0.85 | 0.87 | verified | 0.0410 | whole,view_overlay,tiled,flag,compute_cfu,finish |
+  | 518 | 298 | 256 | 256 | 0.96 | 0.83 | verified | 0.0609 | whole,view_overlay,tiled,view_overlay,compute_cfu,finish |
+  | 8386 | 24 | 18 | 19 | 1.00 | 0.79 | verified | 0.0383 | whole,view_overlay,recheck_cell,flag,compute_cfu,finish |
+
+  Correction to the cost above: plate 349 shows $0.0000 because a one-plate trial had just run it for $0.0341, so the agent's real spend
+  was $0.52 for 16 plates (the 63 calls are the $0.49 part).

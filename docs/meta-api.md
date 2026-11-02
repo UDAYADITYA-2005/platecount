@@ -44,7 +44,7 @@ When anything here conflicts with the live docs, the live docs win: update this 
 ## Muse Spark 1.3 (agent, visual audit, voice parsing)
 - Price: $1.25 per million input tokens, $4.25 per million output tokens. [verified]
 
-Tags in this section mean read in the docs on 2026-11-02. No Spark call has been made yet.
+Tags in this section mean read in the docs on 2026-11-02, unless they say "live" (agent run on 16 dev plates, 63 calls).
 
 - Model ID: `muse-spark-1.3`. Never use `muse-spark-1.3-contributor` (it allows training on inputs). [verified 2026-11-02]
 - Endpoint: `POST https://api.meta.ai/v1/responses`, same as SAM. Chat Completions also exists; these notes
@@ -68,26 +68,28 @@ Tags in this section mean read in the docs on 2026-11-02. No Spark call has been
 - Tool result: `{"type": "function_call_output", "call_id", "output"}` in the next request's `input`. `call_id` is
   1-64 chars. [verified 2026-11-02]
 - `store`: default true; `store: false` is documented and is the recommended stateless mode, which rules out
-  `previous_response_id` for us. Accepted live for SAM; not yet sent to Spark. [verified 2026-11-02]
+  `previous_response_id` for us. Accepted live for SAM and Spark. [verified live 2026-11-02]
 - Stateless loop: send `store: false` with `include: ["reasoning.encrypted_content"]` and resend the conversation
   each turn. Reasoning items need `summary` (`[]` is fine) and `encrypted_content`. Every `function_call_output`
   needs its `function_call` in the same request, else 400. A reasoning item must be followed by an assistant
   message or `function_call` before any user message, else 400. `include` plus `previous_response_id` is 400.
   [verified 2026-11-02]
 - Keep `phase: "commentary"` on assistant text that precedes a `function_call` when replaying it, else 400. [verified 2026-11-02]
-- Exact order of replayed items on a tool turn: no example in the docs; assume the `output` items in the order
-  received, then the `function_call_output`s. Record a real exchange first. [unverified]
+- Replay on a tool turn: the `output` items from `response.completed`, unchanged and in order, then the
+  `function_call_output`s, then any `user` message. Accepted on up to 6 turns per plate. [verified live 2026-11-02]
 - Structured output: `text: {"format": {"type": "json_schema", "name", "schema", "strict"}}`, flat under `format`
   per the schema page. `response_format` is accepted here but does nothing. Works with tools and images. Schema limits:
   depth 10, no recursive `$ref`. [verified 2026-11-02]
 - No Responses example of structured output exists in the docs, and the result shape is assumed to be the usual
   `message` item holding an `output_text` block. Record one before parsing it. [unverified]
-- Sending an image inside `function_call_output` (`output` allows content parts) conflicts with "images only in
-  `user` messages". Send the visual_audit overlay as a `user` message unless a live test shows otherwise. [unverified]
+- An overlay image in a `user` message right after a `function_call_output` is accepted. [verified live 2026-11-02]
+  Sending it inside `function_call_output` conflicts with "images only in `user` messages"; not tried. [unverified]
 - `max_output_tokens` counts reasoning tokens too; minimum 16. `reasoning.effort`: none, minimal, low, medium,
   high, xhigh, max. [verified 2026-11-02]
 - Usage for cost: `usage.input_tokens`, `usage.output_tokens`, `usage.input_tokens_details.cached_tokens`,
-  `usage.output_tokens_details.reasoning_tokens`. Whether reasoning tokens bill as output is not stated. [unverified]
+  `usage.output_tokens_details.reasoning_tokens`. `reasoning_tokens` is part of `output_tokens`: input + output =
+  total in the recorded responses. [verified 2026-11-02] Our counter charges them at the output rate; Meta doesn't
+  state the billing rate. [unverified]
 - Refusal handling: not documented. [unverified]
 
 ## Muse Voice Transcribe
