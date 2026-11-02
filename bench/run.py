@@ -113,7 +113,7 @@ def compare_agent(plate_ids: Sequence[str], plates: Mapping[str, Plate], client:
 def main() -> None:
     parser = argparse.ArgumentParser()
     # ponytail: dev only, so a typo can't spend the held-out plates. Add "test" when told to run it.
-    parser.add_argument("--split", choices=["dev"], default="dev")
+    parser.add_argument("--split", choices=["dev", "test"], default="dev")
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--variant", choices=[*VARIANTS, "both", "agent"], default="whole")
     args = parser.parse_args()
