@@ -115,6 +115,12 @@ def test_cfu_computed_before_segmenting_is_rejected(tmp_path):
     assert fake.run().report.status == "rejected"
 
 
+def test_zero_report_without_segmenting_is_rejected(tmp_path):
+    report = Fake(tmp_path, [CFU, honest_finish]).run().report
+    assert report.status == "rejected"
+    assert "segment" in report.reason
+
+
 def test_overlay_goes_in_a_user_message_after_its_tool_result(tmp_path):
     fake = Fake(tmp_path, [WHOLE, ("view_overlay", {}), CFU, honest_finish])
     fake.run()
