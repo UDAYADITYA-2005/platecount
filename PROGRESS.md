@@ -138,3 +138,8 @@ This file is part of the proof that all work happened during the hackathon.
 
   Correction to the cost above: plate 349 shows $0.0000 because a one-plate trial had just run it for $0.0341, so the agent's real spend
   was $0.52 for 16 plates (the 63 calls are the $0.49 part).
+
+- Mon Nov 2, 7:45 AM IST: code review of counting, meta, agent and bench. 6 fixes, one commit each: verifier requires a real segmentation,
+  bad dilution or volume refused before any paid call, non-completed responses never cached, cost printed on early stops, no Spark text
+  in the report reason, recheck_cell can't lower the count. Dev replay from cache unchanged: 16 of 16 verified, agent MAE 6.12, policy
+  MAE 6.19, $0.0000, 0 API calls, 292 cache hits. pytest: 172 passed.
