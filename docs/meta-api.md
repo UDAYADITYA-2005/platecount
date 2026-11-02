@@ -43,9 +43,52 @@ When anything here conflicts with the live docs, the live docs win: update this 
 
 ## Muse Spark 1.3 (agent, visual audit, voice parsing)
 - Price: $1.25 per million input tokens, $4.25 per million output tokens. [verified]
-- Exact model ID, image input format, tool-calling format and structured-output format:
-  [unverified] - read the model list and API fundamentals pages on https://dev.meta.ai/docs first.
-- Image token cost is not published. Track real token usage from responses.
+
+Tags in this section mean read in the docs on 2026-11-02. No Spark call has been made yet.
+
+- Model ID: `muse-spark-1.3`. Never use `muse-spark-1.3-contributor` (it allows training on inputs). [verified 2026-11-02]
+- Endpoint: `POST https://api.meta.ai/v1/responses`, same as SAM. Chat Completions also exists; these notes
+  cover Responses only. [verified 2026-11-02]
+- Cached input: $0.15 per million. Limits: 3,000 requests and 4,000,000 tokens per minute. [verified 2026-11-02]
+- Image: `{"type": "input_image", "image_url": "<https URL or data:image/jpeg;base64,...>"}` in the `content`
+  of a `user` message. `image_url` is a plain string here (an object on Chat Completions). [verified 2026-11-02]
+- Image limits: `user` messages only, 50 per request, 50 MB inline. JPEG, PNG, GIF, WebP, ICO. [verified 2026-11-02]
+- Image tokens scale with resolution: about 1,300-1,500 for a ~1280 px image, so about $0.002 each at the
+  input price. Exact count: `POST /v1/responses/input_tokens`. [verified 2026-11-02]
+- Tool definition: flat, `{"type": "function", "name", "description", "parameters", "strict"}`, not nested under
+  `function` (that is Chat Completions). `name` and `parameters` are required. [verified 2026-11-02]
+- `strict` default conflicts: the tool-calling guide says false, the schema page says true. Always send it. With
+  true, every object needs `additionalProperties: false` and all properties in `required`. [verified 2026-11-02]
+- `tool_choice`: only `"auto"`. `"none"`, `"required"` and named tools return 400, so a tool can't be forced
+  and the loop must handle a plain-text reply. [verified 2026-11-02]
+- Tool call comes back as an `output` item: `{"type": "function_call", "call_id", "name", "arguments", "status"}`.
+  `arguments` is a JSON string. Validate it in our code whatever `strict` says. [verified 2026-11-02]
+- `parallel_tool_calls` defaults to true: several calls can arrive in one turn, each needing one result.
+  Set false for one call per turn. [verified 2026-11-02]
+- Tool result: `{"type": "function_call_output", "call_id", "output"}` in the next request's `input`. `call_id` is
+  1-64 chars. [verified 2026-11-02]
+- `store`: default true; `store: false` is documented and is the recommended stateless mode, which rules out
+  `previous_response_id` for us. Accepted live for SAM; not yet sent to Spark. [verified 2026-11-02]
+- Stateless loop: send `store: false` with `include: ["reasoning.encrypted_content"]` and resend the conversation
+  each turn. Reasoning items need `summary` (`[]` is fine) and `encrypted_content`. Every `function_call_output`
+  needs its `function_call` in the same request, else 400. A reasoning item must be followed by an assistant
+  message or `function_call` before any user message, else 400. `include` plus `previous_response_id` is 400.
+  [verified 2026-11-02]
+- Keep `phase: "commentary"` on assistant text that precedes a `function_call` when replaying it, else 400. [verified 2026-11-02]
+- Exact order of replayed items on a tool turn: no example in the docs; assume the `output` items in the order
+  received, then the `function_call_output`s. Record a real exchange first. [unverified]
+- Structured output: `text: {"format": {"type": "json_schema", "name", "schema", "strict"}}`, flat under `format`
+  per the schema page. `response_format` is accepted here but does nothing. Works with tools and images. Schema limits:
+  depth 10, no recursive `$ref`. [verified 2026-11-02]
+- No Responses example of structured output exists in the docs, and the result shape is assumed to be the usual
+  `message` item holding an `output_text` block. Record one before parsing it. [unverified]
+- Sending an image inside `function_call_output` (`output` allows content parts) conflicts with "images only in
+  `user` messages". Send the visual_audit overlay as a `user` message unless a live test shows otherwise. [unverified]
+- `max_output_tokens` counts reasoning tokens too; minimum 16. `reasoning.effort`: none, minimal, low, medium,
+  high, xhigh, max. [verified 2026-11-02]
+- Usage for cost: `usage.input_tokens`, `usage.output_tokens`, `usage.input_tokens_details.cached_tokens`,
+  `usage.output_tokens_details.reasoning_tokens`. Whether reasoning tokens bill as output is not stated. [unverified]
+- Refusal handling: not documented. [unverified]
 
 ## Muse Voice Transcribe
 - $3 per 1,000 minutes; 25 validated languages. [verified]
