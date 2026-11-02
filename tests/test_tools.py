@@ -8,7 +8,7 @@ from PIL import Image
 
 from platecount.agent.events import EventLog
 from platecount.agent.tools import PlateState, overlay_jpeg, run_tool, tool_definitions
-from platecount.counting import small_boxes, tile_grid
+from platecount.counting import same_colony, small_boxes, tile_grid, to_image_coords
 from platecount.meta.client import MetaClient
 from platecount.meta.sam import SamInstance, parse_stream
 
@@ -195,3 +195,22 @@ def test_log_only_appends_and_holds_no_image(tmp_path):
 def test_new_logs_are_separate_files(tmp_path):
     assert EventLog.new("518", tmp_path).path != EventLog.new("518", tmp_path).path
     assert EventLog(tmp_path / "none.jsonl").read() == []
+
+
+def test_recheck_never_lowers_the_count(tmp_path):
+    token = "0<|box;x1=100;y1=98;x2=177;y2=141;w=1000;h=1000;c=0.99|><|mask;m|>"
+    response = {"status": "completed", "output": [{"content": [{"text": token}]}]}
+    event = json.dumps({"type": "response.completed", "response": response})
+    reply = f"event: response.completed\ndata: {event}\n\n"
+    state = make_state(tmp_path, reply=reply)
+    wide = to_image_coords(parse_stream(reply)[0], tile_grid(3000, 4000)[0], 3000, 4000)
+    side = (wide.x2 - wide.x1) * 5 // 9  # two touching colonies, the wide box covers both
+    height = wide.y2 - wide.y1 - 3
+    kept = [
+        c.model_copy(update={"y2": wide.y1 + 1 + height, "h": 4000})
+        for c in (box(wide.x1, wide.y1 + 2, side, 3000), box(wide.x2 - side, wide.y1 + 2, side, 3000))
+    ]
+    assert all(same_colony(colony, wide) for colony in kept)  # so merging would replace both
+    state.colonies = list(kept)
+    assert run_tool(state, "recheck_cell", '{"cell":"r0c0"}').output["count"] == 2
+    assert state.colonies == kept

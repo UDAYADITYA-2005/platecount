@@ -83,6 +83,10 @@ def is_candidate(box: SamInstance) -> bool:
     return not (too_large or _on_border(box))
 
 
+def count_nested(colonies: Sequence[SamInstance]) -> int:
+    return sum(any(is_nested(box, other) for other in colonies) for box in colonies)
+
+
 def merge_prompts(by_prompt: Mapping[str, Sequence[SamInstance]]) -> MergeResult:
     """Filter, then keep the highest-confidence box of each colony, best first.
 
@@ -93,8 +97,7 @@ def merge_prompts(by_prompt: Mapping[str, Sequence[SamInstance]]) -> MergeResult
     for box in sorted(boxes, key=lambda b: b.confidence, reverse=True):
         if not any(same_colony(box, other) for other in kept):
             kept.append(box)
-    nested = sum(any(is_nested(box, other) for other in kept) for box in kept)
-    return MergeResult(colonies=kept, nested=nested)
+    return MergeResult(colonies=kept, nested=count_nested(kept))
 
 
 def _side(box: SamInstance) -> float:

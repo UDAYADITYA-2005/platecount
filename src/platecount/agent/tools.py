@@ -18,11 +18,12 @@ from platecount.cfu import CfuResult, compute_cfu
 from platecount.counting import (
     GRID,
     PlateCount,
+    count_nested,
     count_tiled,
     count_whole,
     median_side,
-    merge_prompts,
     merge_tiles,
+    same_colony,
     small_boxes,
     tile_grid,
     to_image_coords,
@@ -119,16 +120,22 @@ def _segment_tiled(state: PlateState, _: NoArgs) -> ToolResult:
 
 
 def _recheck_cell(state: PlateState, args: RecheckArgs) -> ToolResult:
-    """Add what other prompts find in one tile; boxes already in the set are not doubled."""
+    """Add what other prompts find in one tile. Boxes already in the set stay and aren't doubled.
+
+    Not merge_prompts over both sets: a confident new box across two kept colonies would
+    replace them, and a tool that adds must not lower the count.
+    """
     previous = len(state.colonies)
     width, height = state.img.size
     row, column = int(args.cell[1]), int(args.cell[3])
     tile = tile_grid(width, height)[row * GRID + column]
     found = segment(state.client, encode_jpeg(state.img.crop(tile)), RECHECK_PROMPTS)
     new = merge_tiles([tile], [found], width, height)
-    merged = merge_prompts({"kept": state.colonies, "recheck": new.colonies})
-    state.colonies = merged.colonies
-    state.nested = merged.nested
+    added = [
+        box for box in new.colonies if not any(same_colony(box, kept) for kept in state.colonies)
+    ]
+    state.colonies = [*state.colonies, *added]
+    state.nested = count_nested(state.colonies)
     return ToolResult(
         _summary(state, previous, {prompt: len(boxes) for prompt, boxes in found.items()})
     )
