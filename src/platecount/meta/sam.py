@@ -75,12 +75,10 @@ def prepare_image(path: Path) -> bytes:
 def _output_text(raw: str) -> str:
     completed = completed_response(raw)
     if completed is None:
-        raise SamParseError(f"no response.completed event:
-{raw}")
+        raise SamParseError(f"no response.completed event:\n{raw}")
     response = _Response.model_validate(completed)
     if response.status != "completed":
-        raise SamParseError(f"response status {response.status!r}:
-{raw}")
+        raise SamParseError(f"response status {response.status!r}:\n{raw}")
     return "".join(part.text for item in response.output for part in item.content)
 
 
