@@ -23,16 +23,18 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel
 
 from platecount.agent.events import EventLog, ToolEvent
 from platecount.agent.loop import AgentResult, Report, run_agent
 from platecount.agent.tools import TOOLS, overlay_jpeg
 from platecount.meta.client import MetaAPIError, MetaClient
-from platecount.meta.sam import load_image
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PHOTO_PIXELS = 24_000_000  # as decoded. Bytes don't bound memory: 0.7 MB of flat 49 MP peaked at 680 MB
+MAX_PHOTO_SIDE = 4096  # the largest AGAR plate is 4000 px, so the benchmarked sizes pass unchanged
+MAX_IN_LINE = 4  # plates running or waiting; each holds its photo, so at most 40 MB of uploads
 PLATES_PER_HOUR = 10
 HOUR_S = 3600
 RESERVE_USD = 0.25  # held per running plate; the dearest plate so far cost $0.085
@@ -44,6 +46,7 @@ SPEND_PATH = Path(".cache/daily_spend.json")  # gitignored
 DILUTION_HELP = "Dilution must be a power of ten, such as 10^-2, 1:100 or 0.01."
 VOLUME_HELP = "Volume must be a number above 0, in mL."
 DEMO_ONLY = "Live counting is off for now. The demo plates below still work."
+BUSY = "Several plates are being counted. Please try again in a minute."
 
 FLAG_TEXT = {
     "agent_fallback": "The agent did not finish, so the fixed counting method produced this result.",
@@ -78,7 +81,7 @@ class PlateResponse(BaseModel):
     overlay_jpeg: str  # base64; empty for a demo plate, which has its own overlay route
     flags: list[Flag]
     steps: list[Step]
-    assumed: list[str]  # the inputs the visitor left out
+    assumed: list[str]  # the inputs nobody supplied
 
 
 class SampleInfo(BaseModel):
@@ -128,6 +131,19 @@ def parse_volume(text: str) -> float:
     if not math.isfinite(volume) or volume <= 0:
         raise BadDilution(VOLUME_HELP)
     return volume
+
+
+def client_ip(request: Request, trust_proxy: bool) -> str:
+    """The rate limit key. Never the leftmost X-Forwarded-For: Render keeps what a client sends there.
+
+    Cloudflare, in front of every Render service, sets CF-Connecting-IP itself. The last
+    X-Forwarded-For entry comes from the nearest proxy: not forgeable, but it can be shared.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if not trust_proxy:
+        return peer
+    last_hop = ",".join(request.headers.getlist("x-forwarded-for")).split(",")[-1].strip()
+    return request.headers.get("cf-connecting-ip", "").strip() or last_hop or peer
 
 
 @dataclass
@@ -251,8 +267,18 @@ async def _read_photo(request: Request) -> bytes:
 
 
 def _decode(photo: bytes) -> Image.Image:
+    """Upright RGB, at most MAX_PHOTO_SIDE. The size is known before any pixels are decoded.
+
+    draft makes a big JPEG decode at 1/2, 1/4 or 1/8 scale, never below MAX_PHOTO_SIDE // 2.
+    It does nothing to other formats, so the pixel check is what bounds those.
+    """
     try:
-        return load_image(io.BytesIO(photo))
+        img = Image.open(io.BytesIO(photo))
+        img.draft(None, (MAX_PHOTO_SIDE // 2, MAX_PHOTO_SIDE // 2))
+        if img.width * img.height > MAX_PHOTO_PIXELS:
+            raise HTTPException(413, "That photo has too many pixels. Use a normal camera photo.")
+        img.thumbnail((MAX_PHOTO_SIDE, MAX_PHOTO_SIDE))
+        return ImageOps.exif_transpose(img).convert("RGB")
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
         raise HTTPException(415, "That file could not be read as a photo. Try a JPEG.") from exc
 
@@ -269,6 +295,9 @@ def create_app(
     app = FastAPI(title="PlateCount")
     app.state.limiter = RateLimit()
     app.state.cap = SpendCap(spend_path, float(os.environ.get("DAILY_USD", "3")))
+    app.state.trust_proxy = os.environ.get("TRUST_PROXY") == "1"
+    app.state.run_lock = threading.Lock()
+    app.state.in_line = 0
     samples_dir = web_dir / "samples"
 
     def sample_list() -> list[SampleInfo]:
@@ -300,6 +329,23 @@ def create_app(
         finally:
             app.state.cap.settle(client.cost.usd)
 
+    def run_plate(
+        photo: bytes, exponent: int, volume: float, assumed: list[str], visitor: str
+    ) -> PlateResponse | JSONResponse:
+        # ponytail: one plate at a time keeps peak memory at one run on 512 MB, so a second
+        # visitor waits about 40 s. Two parallel runs measured 406 MB. Raise with the plan.
+        with app.state.run_lock:
+            img = _decode(photo)
+            try:
+                client = client_factory()
+            except MetaAPIError:
+                return JSONResponse({"detail": DEMO_ONLY, "demo_only": True}, status_code=503)
+            if not app.state.limiter.allow(visitor):
+                raise HTTPException(429, f"The limit is {PLATES_PER_HOUR} plates an hour. Try again later.")
+            if not app.state.cap.reserve():
+                return JSONResponse({"detail": DEMO_ONLY, "demo_only": True}, status_code=503)
+            return count_photo(client, img, exponent, volume, assumed)
+
     @app.post("/plates", response_model=PlateResponse)
     async def post_plate(
         request: Request, dilution: str | None = None, volume_ml: str | None = None
@@ -310,20 +356,22 @@ def create_app(
             volume = parse_volume(volume_ml) if volume_ml else DEFAULT_VOLUME_ML
         except BadDilution as exc:
             raise HTTPException(422, str(exc)) from exc
-        img = await run_in_threadpool(_decode, photo)
-        try:
-            client = client_factory()
-        except MetaAPIError:
-            return JSONResponse({"detail": DEMO_ONLY, "demo_only": True}, status_code=503)
-        visitor = request.client.host if request.client else "unknown"
-        if not app.state.limiter.allow(visitor):
-            raise HTTPException(429, f"The limit is {PLATES_PER_HOUR} plates an hour. Try again later.")
-        if not app.state.cap.reserve():
-            return JSONResponse({"detail": DEMO_ONLY, "demo_only": True}, status_code=503)
         assumed = [
             name for name, given in (("dilution", dilution), ("volume_ml", volume_ml)) if not given
         ]
-        return await run_in_threadpool(count_photo, client, img, exponent, volume, assumed)
+        if app.state.in_line >= MAX_IN_LINE:
+            raise HTTPException(503, BUSY)
+        app.state.in_line += 1  # only this event loop touches it, so no lock
+        try:
+            visitor = client_ip(request, app.state.trust_proxy)
+            return await run_in_threadpool(run_plate, photo, exponent, volume, assumed, visitor)
+        finally:
+            app.state.in_line -= 1
+
+    @app.get("/healthz")
+    def healthz(request: Request) -> dict[str, str | bool]:
+        """cf_header says whether Render passes CF-Connecting-IP on. It shows no address."""
+        return {"status": "ok", "cf_header": "cf-connecting-ip" in request.headers}
 
     @app.get("/samples", response_model=list[SampleInfo])
     def get_samples() -> list[SampleInfo]:

@@ -10,15 +10,20 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from starlette.requests import Request
 
 from platecount.agent.events import EVENTS_DIR
 from platecount.api.app import (
+    MAX_IN_LINE,
+    MAX_PHOTO_SIDE,
     MAX_UPLOAD_BYTES,
     PLATES_PER_HOUR,
     RESERVE_USD,
     BadDilution,
     RateLimit,
     SpendCap,
+    _decode,
+    client_ip,
     create_app,
     parse_dilution,
     parse_volume,
@@ -157,6 +162,86 @@ def test_oversized_photo_without_content_length_is_refused(tmp_path):
     assert h.http.post("/plates", content=chunks()).status_code == 413
 
 
+def test_too_many_pixels_is_refused_before_decoding(tmp_path):
+    buffer = io.BytesIO()
+    Image.new("L", (6000, 6000)).save(buffer, "PNG", compress_level=1)  # PNG has no scaled decode
+    h = Harness(tmp_path, HONEST)
+    assert h.http.post("/plates", content=buffer.getvalue()).status_code == 413
+    assert h.spark_calls == 0
+    assert h.app.state.limiter.hits == {}
+
+
+def test_huge_jpeg_decodes_scaled_down():
+    buffer = io.BytesIO()
+    Image.new("L", (9000, 9000)).save(buffer, "JPEG", quality=30)
+    img = _decode(buffer.getvalue())
+    assert img.mode == "RGB"
+    assert max(img.size) <= MAX_PHOTO_SIDE
+
+
+def test_big_photo_stays_upright_and_a_plate_size_photo_keeps_its_size():
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotate 90 degrees to display
+    buffer = io.BytesIO()
+    Image.new("L", (8000, 6000)).save(buffer, "JPEG", exif=exif)
+    assert _decode(buffer.getvalue()).size == (3000, 4000)
+    buffer = io.BytesIO()
+    Image.new("L", (5000, 4000)).save(buffer, "PNG", compress_level=1)
+    assert max(_decode(buffer.getvalue()).size) == MAX_PHOTO_SIDE
+    buffer = io.BytesIO()
+    Image.new("L", (4000, 3000)).save(buffer, "JPEG")
+    assert _decode(buffer.getvalue()).size == (4000, 3000)
+
+
+def test_full_line_is_refused_without_a_run_and_a_finished_plate_leaves_it(tmp_path):
+    h = Harness(tmp_path, HONEST)
+    h.app.state.in_line = MAX_IN_LINE
+    assert h.post().status_code == 503
+    assert h.spark_calls == 0
+    assert h.app.state.limiter.hits == {}
+    h.app.state.in_line = 0
+    assert h.post(dilution="1:100").status_code == 200
+    assert h.app.state.in_line == 0
+
+
+def asgi_request(*headers: tuple[bytes, bytes]) -> Request:
+    return Request({"type": "http", "headers": list(headers), "client": ("10.0.0.1", 5)})
+
+
+FORGED = (b"x-forwarded-for", b"6.6.6.6, 1.2.3.4, 172.70.0.1")
+
+
+def test_client_ip_ignores_the_headers_unless_trusted():
+    assert client_ip(asgi_request(FORGED, (b"cf-connecting-ip", b"1.2.3.4")), False) == "10.0.0.1"
+
+
+def test_client_ip_never_takes_the_forgeable_leftmost_entry():
+    assert client_ip(asgi_request(FORGED, (b"cf-connecting-ip", b"1.2.3.4")), True) == "1.2.3.4"
+    assert client_ip(asgi_request(FORGED), True) == "172.70.0.1"
+    assert client_ip(asgi_request(), True) == "10.0.0.1"
+
+
+def test_changing_x_forwarded_for_does_not_escape_the_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    h = Harness(tmp_path, HONEST)
+    assert all(h.app.state.limiter.allow("1.2.3.4") for _ in range(PLATES_PER_HOUR))
+    response = h.http.post("/plates", content=jpeg(), headers={
+        "X-Forwarded-For": "6.6.6.6", "CF-Connecting-IP": "1.2.3.4",
+    })
+    assert response.status_code == 429
+    assert h.spark_calls == 0
+
+
+def test_healthz_needs_no_key_and_shows_no_address(tmp_path):
+    def no_key() -> MetaClient:
+        raise MetaAPIError("MODEL_API_KEY is not set")
+
+    http = TestClient(create_app(no_key, tmp_path / "s.json", WEB))
+    response = http.get("/healthz", headers={"CF-Connecting-IP": "1.2.3.4"})
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "cf_header": True}
+
+
 def test_rate_limit_is_per_visitor():
     limit = RateLimit()
     assert all(limit.allow("a") for _ in range(PLATES_PER_HOUR))
@@ -290,6 +375,15 @@ def test_sample_overlay_is_a_404_when_it_was_not_deployed(tmp_path):
     response = h.http.get("/samples/518/overlay.jpg")
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/jpeg"
+
+
+def test_committed_samples_mark_their_cfu_as_assumed_demo_values():
+    for sample in json.loads((WEB / "samples" / "index.json").read_text(encoding="utf-8")):
+        data = json.loads((WEB / "samples" / f"{sample['id']}.json").read_text(encoding="utf-8"))
+        assert data["assumed"] == ["dilution", "volume_ml"]
+        assert data["cfu_basis"] == "assumed demo values"
+        assert "assumed demo values" in data["note"]
+        assert data["report"]["cfu_per_ml"] == data["report"]["colonies"] * 100
 
 
 def test_static_page_is_served(tmp_path):

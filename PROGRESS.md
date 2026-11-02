@@ -154,3 +154,8 @@ This file is part of the proof that all work happened during the hackathon.
 - Mon Nov 2, 9:00 AM IST: built the app on run_agent. FastAPI POST /plates (raw body, photo in memory, per-request temp cache and log), 10 plates an hour, 10 MB,
   DAILY_USD cap, 3 demo plates from cache at $0 with no AGAR pixels committed, mobile page. Live test_plate.jpg through the server: 63 colonies,
   6,300 CFU/mL, verified, 41.5 s, $0.0566. Page checked at 360 px in headless Chrome: no overflow, no target under 48 px. pytest: 226 passed.
+
+- Mon Nov 2, 4:50 PM IST: demo CFU marked as assumed demo values in the JSON and on the page; samples regenerated from cache, $0.0000, 0 API calls, 39 cache hits.
+  Rate limit key is CF-Connecting-IP, then the last X-Forwarded-For entry, only with TRUST_PROXY=1 (uvicorn on Render trusts the forgeable leftmost entry). GET /healthz added.
+  Peak working set on Windows: cached plate 518 248 MB, 4000x3000 upload 244 MB, 50 MP phone JPEG 230 MB (flat 49 MP was 680 MB before the fix), largest allowed PNG 293 MB, 2 parallel 406 -> 249 MB.
+  One plate runs at a time, 4 in line at most, 24 MP decoded. 4th demo plate not added: data/test_plate.jpg has no known licence or author.
