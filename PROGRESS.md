@@ -150,3 +150,7 @@ This file is part of the proof that all work happened during the hackathon.
 
 - Mon Nov 2, IST: 95% paired bootstrap CIs on the eval-v1 test result (10,000 resamples, seed 20261102, no API calls). Agent minus policy: MAE -1.78
   [-5.17, 0.91], sMAPE -2.47 [-6.98, 0.94], within 10% +4.35 [-8.70, 17.39]. All three include 0, so the agent's gain is not shown on 23 plates.
+
+- Mon Nov 2, 9:00 AM IST: built the app on run_agent. FastAPI POST /plates (raw body, photo in memory, per-request temp cache and log), 10 plates an hour, 10 MB,
+  DAILY_USD cap, 3 demo plates from cache at $0 with no AGAR pixels committed, mobile page. Live test_plate.jpg through the server: 63 colonies,
+  6,300 CFU/mL, verified, 41.5 s, $0.0566. Page checked at 360 px in headless Chrome: no overflow, no target under 48 px. pytest: 226 passed.

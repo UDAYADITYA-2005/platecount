@@ -295,3 +295,32 @@ def test_sample_overlay_is_a_404_when_it_was_not_deployed(tmp_path):
 def test_static_page_is_served(tmp_path):
     h = Harness(tmp_path, [], web=sample_web(tmp_path))
     assert h.http.get("/").text == "page"
+
+
+def test_page_follows_the_web_rules():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    assert "Your photo is sent to Meta's API to count colonies and is deleted within 24 hours." in html
+    assert 'accept="image/*" capture="environment"' in html
+    assert 'name="viewport"' in html
+    assert "CC BY-NC 2.0" in html
+    assert "CFU/mL estimate" in html
+
+
+def test_page_makes_no_banned_claims():
+    text = " ".join(
+        (WEB / name).read_text(encoding="utf-8").lower() for name in ("index.html", "app.js")
+    )
+    from platecount.api.app import FLAG_TEXT
+
+    text += " ".join(FLAG_TEXT.values()).lower()
+    for word in ("safe", "contaminat", "diagnos", "health"):
+        assert word not in text
+
+
+def test_every_flag_a_report_can_carry_has_plain_text():
+    from platecount.agent.tools import FlagReason
+    from platecount.api.app import FLAG_TEXT
+    from platecount.cfu import Flag
+    from typing import get_args
+
+    assert set(get_args(FlagReason)) | set(get_args(Flag)) | {"agent_fallback"} == set(FLAG_TEXT)

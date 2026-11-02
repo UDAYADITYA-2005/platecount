@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlateCount</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>PlateCount</h1>
+      <p class="muted">Colony count and CFU/mL estimate from an agar plate photo, for a person to review.</p>
+    </header>
+
+    <section id="upload">
+      <p id="error" class="error" role="alert" hidden></p>
+      <div class="fields">
+        <label>Dilution
+          <input id="dilution" type="text" placeholder="1:100" autocomplete="off" autocapitalize="off">
+        </label>
+        <label>Volume plated (mL)
+          <input id="volume" type="text" inputmode="decimal" placeholder="1" autocomplete="off">
+        </label>
+      </div>
+      <p class="muted small">Use a power of ten: 10^-2, 1:100 or 0.01. Left blank: undiluted, 1 mL.</p>
+
+      <label class="button primary">Take a photo
+        <input id="camera" class="file" type="file" accept="image/*" capture="environment">
+      </label>
+      <p class="small">Your photo is sent to Meta's API to count colonies and is deleted within 24 hours.</p>
+      <label class="button secondary">Choose from gallery
+        <input id="gallery" class="file" type="file" accept="image/*">
+      </label>
+
+      <div id="samples" hidden>
+        <h2>Or try a demo plate</h2>
+        <p class="muted small">Precomputed, so they always work. AGAR dataset, CC BY-NC 2.0.</p>
+        <div id="sample-buttons"></div>
+      </div>
+    </section>
+
+    <section id="waiting" hidden aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Counting colonies. This can take a minute or two.</p>
+      <p class="muted small">The agent's steps appear when it finishes.</p>
+    </section>
+
+    <section id="result" hidden>
+      <p id="status" class="status"></p>
+      <div id="picture"></div>
+      <div class="numbers">
+        <div><span class="label">Colony count</span><strong id="count"></strong></div>
+        <div><span class="label">CFU/mL estimate</span><strong id="cfu"></strong></div>
+      </div>
+      <p id="notes" class="muted small"></p>
+      <div id="flags-block" hidden>
+        <h2>For review</h2>
+        <ul id="flags"></ul>
+      </div>
+      <h2>What the agent did</h2>
+      <ol id="steps"></ol>
+      <p id="cost" class="muted small"></p>
+      <button id="again" class="button primary" type="button">Count another plate</button>
+    </section>
+
+    <footer class="muted small">
+      A lab measurement with flags for a person to review.
+      Demo plates: <a href="https://agar.neurosys.com">AGAR dataset</a>, CC BY-NC 2.0.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

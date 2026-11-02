@@ -204,9 +204,10 @@ def _step_summary(event: ToolEvent) -> str:
     if event.tool == "compute_cfu":
         return f"{out['cfu_per_ml']} CFU/mL from {out['colonies']} colonies"
     if event.tool == "flag":
-        return f"flagged {out['flag']}" if out["recorded"] else f"{out['flag']} not needed"
+        name = out["flag"].replace("_", " ")
+        return f"flagged: {name}" if out["recorded"] else f"{name}: not needed"
     if event.tool == "view_overlay":
-        return f"looked at {out['count']} outlined colonies"
+        return f"{out['count']} colonies outlined"
     if event.tool == "finish":
         return "sent the result to the verifier"
     if event.tool == "verify":
