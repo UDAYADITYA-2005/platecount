@@ -80,6 +80,10 @@ class MetaClient:
         self.cost.calls += 1
         self.cost.usd += cost_usd(raw) if callable(cost_usd) else cost_usd
 
+        completed = completed_response(raw)
+        if completed and completed.get("status") != "completed":  # paid for, but never replay it
+            raise MetaAPIError(f"response status {completed.get('status')!r}:\n{raw}")
+
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(raw, encoding="utf-8", newline="")

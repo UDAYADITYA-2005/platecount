@@ -85,6 +85,19 @@ def test_truncated_stream_is_not_cached_or_charged(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_incomplete_response_is_charged_but_not_cached(tmp_path):
+    event = json.dumps({"type": "response.completed", "response": {"status": "incomplete"}})
+    bad = f"event: response.completed\ndata: {event}\n\n"
+    handler, calls = counted(httpx.Response(200, text=bad))
+    client = make_client(tmp_path, handler)
+    for _ in range(2):  # a rerun goes back to the API instead of replaying the failure
+        with pytest.raises(MetaAPIError, match="incomplete"):
+            client.post_stream("k", {}, 0.0025)
+    assert len(calls) == 2
+    assert client.cost.usd == 0.005
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_store_false_and_stream_are_always_sent(tmp_path):
     handler, calls = counted(httpx.Response(200, text=GOOD))
     make_client(tmp_path, handler).post_stream("k", {"store": True, "model": "m"}, 0)
