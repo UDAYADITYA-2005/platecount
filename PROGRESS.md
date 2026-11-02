@@ -143,3 +143,7 @@ This file is part of the proof that all work happened during the hackathon.
   bad dilution or volume refused before any paid call, non-completed responses never cached, cost printed on early stops, no Spark text
   in the report reason, recheck_cell can't lower the count. Dev replay from cache unchanged: 16 of 16 verified, agent MAE 6.12, policy
   MAE 6.19, $0.0000, 0 API calls, 292 cache hits. pytest: 172 passed.
+
+- Mon Nov 2, IST: held-out test split run once at eval-v1 (23 plates). Agent MAE 3.78, sMAPE 8.7%, within 10% 73.9%, precision 0.90, recall
+  0.91, 23 of 23 verified. Policy MAE 5.57, sMAPE 11.1%, within 10% 69.6%, precision 0.85, recall 0.90. $1.02 total. Most of the gain is 2
+  plates (11924, 734), and no test plate is in the 151-300 band. Full table in results/test_eval_v1.md. --split is back to dev-only.
