@@ -108,7 +108,6 @@ def compare_agent(plate_ids: Sequence[str], plates: Mapping[str, Plate], client:
     print_summaries("policy", policy)
     print_summaries("agent", agent)
     print(f"\nagent status: {dict(Counter(statuses))}")
-    print(client.cost.summary())
 
 
 def main() -> None:
@@ -118,11 +117,17 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--variant", choices=[*VARIANTS, "both", "agent"], default="whole")
     args = parser.parse_args()
+    client = MetaClient.from_env()
+    try:
+        run(args, client)
+    finally:  # also on the budget stop and on a crash: CLAUDE.md wants it after every run
+        print(client.cost.summary())
 
+
+def run(args: argparse.Namespace, client: MetaClient) -> None:
     variants = ["whole", "tiled"] if args.variant == "both" else [args.variant]
     plate_ids = json.loads(SPLIT_PATH.read_text(encoding="utf-8"))[args.split][: args.limit]
     plates = load_plates()
-    client = MetaClient.from_env()
     if args.variant == "agent":
         compare_agent(plate_ids, plates, client)
         return
@@ -153,7 +158,6 @@ def main() -> None:
 
     for variant in variants:
         print_summaries(variant, results[variant])
-    print(client.cost.summary())
 
 
 if __name__ == "__main__":
