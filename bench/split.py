@@ -38,7 +38,11 @@ def load_plates(root: Path = AGAR_ROOT) -> dict[str, Plate]:
 
 
 def load_labels(plate: Plate, width: int, height: int) -> list[SamInstance]:
-    """Return AGAR's boxes as instances at the image's own size, with inclusive corners."""
+    """Return AGAR's colony boxes at the image's own size, with inclusive corners.
+
+    Contamination boxes are left out: colonies_number doesn't count them (plate 734: 78 labels,
+    24 Contamination, colonies_number 54).
+    """
     labels = json.loads(plate.image.with_suffix(".json").read_text(encoding="utf-8"))["labels"]
     return [
         SamInstance(
@@ -53,6 +57,7 @@ def load_labels(plate: Plate, width: int, height: int) -> list[SamInstance]:
             mask="",
         )
         for label in labels
+        if label["class"] != "Contamination"
     ]
 
 

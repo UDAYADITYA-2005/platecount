@@ -74,6 +74,14 @@ def test_load_labels_makes_inclusive_boxes_at_the_image_size(tmp_path):
     assert (box.w, box.h) == (3000, 4000)
 
 
+def test_load_labels_leaves_out_contamination(tmp_path):
+    box = {"id": 1, "x": 1, "y": 1, "width": 5, "height": 5}
+    labels = [{**box, "class": "E.coli"}, {**box, "id": 2, "class": "Contamination"}]
+    (tmp_path / "1.json").write_text(json.dumps({"labels": labels}), encoding="utf-8")
+    plate_1 = Plate(id="1", image=tmp_path / "1.jpg", true_count=1)
+    assert [b.id for b in load_labels(plate_1, 100, 100)] == [1]
+
+
 def test_split_is_seeded_stratified_and_disjoint():
     plates = sample_plates()
     split = make_split(plates, seed=1, dev_size=16)

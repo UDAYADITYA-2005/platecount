@@ -13,7 +13,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 from pydantic import BaseModel
 
-from platecount.meta.client import MetaClient, cache_key
+from platecount.meta.client import MetaClient, cache_key, completed_response
 
 MODEL = "sam-3.1"
 USD_PER_IMAGE = 0.0025
@@ -73,16 +73,15 @@ def prepare_image(path: Path) -> bytes:
 
 
 def _output_text(raw: str) -> str:
-    for line in raw.splitlines():
-        if not line.startswith("data: {"):
-            continue
-        event = json.loads(line[len("data: "):])
-        if event.get("type") == "response.completed":
-            response = _Response.model_validate(event["response"])
-            if response.status != "completed":
-                raise SamParseError(f"response status {response.status!r}:\n{raw}")
-            return "".join(part.text for item in response.output for part in item.content)
-    raise SamParseError(f"no response.completed event:\n{raw}")
+    completed = completed_response(raw)
+    if completed is None:
+        raise SamParseError(f"no response.completed event:
+{raw}")
+    response = _Response.model_validate(completed)
+    if response.status != "completed":
+        raise SamParseError(f"response status {response.status!r}:
+{raw}")
+    return "".join(part.text for item in response.output for part in item.content)
 
 
 def _fields(token: str) -> dict[str, str]:

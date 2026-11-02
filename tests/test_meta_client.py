@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from platecount.meta.client import MetaAPIError, MetaClient, cache_key
+from platecount.meta.client import MetaAPIError, MetaClient, cache_key, completed_response
 
 GOOD = "event: response.completed\ndata: {}\n\n"
 
@@ -103,3 +103,18 @@ def test_cache_key_changes_with_each_input():
     assert base != cache_key("m", "q", b"i", {"a": "1"})
     assert base != cache_key("m", "p", b"j", {"a": "1"})
     assert base != cache_key("m", "p", b"i", {"a": "2"})
+
+
+def test_cost_can_come_from_the_response(tmp_path):
+    handler, _ = counted(httpx.Response(200, text=GOOD))
+    client = make_client(tmp_path, handler)
+    client.post_stream("k", {}, lambda raw: len(raw) / 1000)
+    assert client.cost.usd == len(GOOD) / 1000
+    client.post_stream("k", {}, lambda raw: 99.0)
+    assert client.cost.usd == len(GOOD) / 1000
+
+
+def test_completed_response_finds_the_event():
+    raw = 'data: {"type":"response.created"}\n\ndata: {"type":"response.completed","response":{"id":"r"}}\n'
+    assert completed_response(raw) == {"id": "r"}
+    assert completed_response("event: nothing\n") is None

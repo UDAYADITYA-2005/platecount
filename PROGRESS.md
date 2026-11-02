@@ -108,3 +108,6 @@ This file is part of the proof that all work happened during the hackathon.
   --variant policy, per-prompt and signed error columns back. 16 dev plates: MAE 6.19, sMAPE 13.4%, within 10% 37.5%,
   precision 0.91, recall 0.87; threshold fitted on these same plates. No min-size filter: on the 4 tiled plates 20 px cut
   54 false boxes but lost 5 real colonies, MAE 16.25 to 19.50. $0.0000, 0 API calls. pytest: 96 passed.
+- 12:22 IST, load_labels now leaves out Contamination boxes: box scoring only, truth stays colonies_number. Decided before any
+  test split run. Plate 734 (test, the only plate with these labels): 78 labels, 24 Contamination, colonies_number 54, so
+  truth already excludes them. No dev plate has any, so dev numbers don't move. post_stream can now take cost from the response.

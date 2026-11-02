@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -39,6 +40,16 @@ def cache_key(model: str, prompt: str, image: bytes, options: dict[str, str]) ->
     return hashlib.sha256(header + b"\0" + image).hexdigest()
 
 
+def completed_response(raw: str) -> dict | None:
+    """Return the `response` object of an SSE stream's response.completed event, if any."""
+    for line in raw.splitlines():
+        if line.startswith("data: {"):
+            event = json.loads(line[len("data: "):])
+            if event.get("type") == "response.completed":
+                return event["response"]
+    return None
+
+
 @dataclass
 class MetaClient:
     api_key: str = field(repr=False)
@@ -55,8 +66,11 @@ class MetaClient:
             raise MetaAPIError("MODEL_API_KEY is not set (check .env)")
         return cls(api_key=key)
 
-    def post_stream(self, key: str, body: dict, cost_usd: float) -> str:
-        """Return the raw SSE text for a request, from the cache when possible."""
+    def post_stream(self, key: str, body: dict, cost_usd: float | Callable[[str], float]) -> str:
+        """Return the raw SSE text for a request, from the cache when possible.
+
+        cost_usd is a fixed price, or a function of the raw response for token-priced models.
+        """
         path = self.cache_dir / f"{key}.txt"
         if path.exists():
             self.cost.cache_hits += 1
@@ -64,7 +78,7 @@ class MetaClient:
 
         raw = self._post(body)
         self.cost.calls += 1
-        self.cost.usd += cost_usd
+        self.cost.usd += cost_usd(raw) if callable(cost_usd) else cost_usd
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
