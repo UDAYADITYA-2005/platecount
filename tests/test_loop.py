@@ -11,6 +11,7 @@ from platecount.agent.events import EventLog
 from platecount.agent.loop import AgentResult, run_agent
 from platecount.counting import count_plate
 from platecount.meta.client import MetaClient
+from platecount.meta.spark import SparkParseError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SAM_DOT = (FIXTURES / "sam_sweep_crop_dot.txt").read_text(encoding="utf-8")
@@ -217,3 +218,25 @@ def test_bad_dilution_or_volume_is_refused_before_any_paid_call(tmp_path, expone
         run_agent(fake.client, img, exponent, volume, fake.log)
     assert fake.client.cost.calls == 0
     assert fake.log.read() == []
+
+
+def test_refused_arguments_stay_out_of_the_report(tmp_path):
+    bad = ("flag", '{"reason":"I counted 999 colonies"}')
+    fake = Fake(tmp_path, [bad, bad])
+    report = fake.run().report
+    assert report.status == "fallback"
+    assert "999" not in report.reason
+    assert any("999" in event.args for event in fake.log.read())  # the log keeps them
+
+
+def test_parse_error_text_stays_out_of_the_report_but_is_logged(tmp_path, monkeypatch):
+    def unreadable(*_):
+        raise SparkParseError("while parsing: I counted 999 colonies")
+
+    monkeypatch.setattr("platecount.agent.loop.respond", unreadable)
+    fake = Fake(tmp_path, [])
+    report = fake.run().report
+    assert report.status == "fallback"
+    assert "999" not in report.reason
+    assert "SparkParseError" in report.reason
+    assert any("999" in str(event.output) for event in fake.log.read())

@@ -149,7 +149,7 @@ def _drive(state: PlateState) -> Report:
             if not result.ok:
                 refused += 1
                 if refused > 1:
-                    raise _Stop(f"second refused tool call: {result.output['error']}")
+                    raise _Stop("second refused tool call")  # the error echoes Spark's arguments
             if result.image:
                 images.append(result.image)
             if state.claim:
@@ -196,7 +196,10 @@ def run_agent(
     state = PlateState(client, img, dilution_exponent, volume_ml, log)
     try:
         report = _drive(state)
-    except (_Stop, MetaAPIError, ValueError) as exc:
+    except (_Stop, MetaAPIError) as exc:
         report = _fallback(state, str(exc))
+    except ValueError as exc:  # parse errors quote the response, and a report holds no Spark text
+        _note(state, "agent_error", {"error": str(exc)[:REASON_CHARS]})
+        report = _fallback(state, type(exc).__name__)
     report.cost_usd = client.cost.usd - usd_before
     return AgentResult(report=report, boxes=state.colonies)
