@@ -3,13 +3,17 @@
 Boxes in the set are always in full-image coordinates: whole-image boxes arrive in upload
 pixels and tile boxes in image pixels, so they must not be mixed unconverted.
 """
+import hashlib
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Literal
 
 from PIL import Image, ImageDraw
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from platecount.agent.events import EventLog, ToolEvent, input_hash
 from platecount.cfu import CfuResult, compute_cfu
 from platecount.counting import (
     GRID,
@@ -64,11 +68,16 @@ class PlateState:
     img: Image.Image
     dilution_exponent: int
     volume_ml: float
+    log: EventLog
     colonies: list[SamInstance] = field(default_factory=list)
     nested: int = 0
     flags: list[str] = field(default_factory=list)
     cfu: CfuResult | None = None
     claim: FinishArgs | None = None
+
+    @cached_property
+    def image_hash(self) -> str:
+        return hashlib.sha256(self.img.tobytes()).hexdigest()
 
 
 @dataclass
@@ -231,7 +240,24 @@ def tool_definitions() -> list[dict]:
 
 
 def run_tool(state: PlateState, name: str, raw_args: str) -> ToolResult:
-    """Validate Spark's arguments and run the tool. Bad arguments return ok=False."""
+    """Run a tool and log it before anyone sees the result. Bad arguments return ok=False."""
+    usd_before = state.client.cost.usd
+    start = time.perf_counter()
+    result = _dispatch(state, name, raw_args)
+    state.log.append(
+        ToolEvent(
+            tool=name,
+            args=raw_args,
+            input_hash=input_hash(state.image_hash, name, raw_args),
+            output=result.output,
+            cost_usd=state.client.cost.usd - usd_before,
+            ms=round((time.perf_counter() - start) * 1000),
+        )
+    )
+    return result
+
+
+def _dispatch(state: PlateState, name: str, raw_args: str) -> ToolResult:
     tool = TOOLS.get(name)
     if tool is None:
         return ToolResult({"error": f"unknown tool {name!r}"}, ok=False)

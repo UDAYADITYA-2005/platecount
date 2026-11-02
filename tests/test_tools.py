@@ -6,6 +6,7 @@ import httpx
 import pytest
 from PIL import Image
 
+from platecount.agent.events import EventLog
 from platecount.agent.tools import PlateState, overlay_jpeg, run_tool, tool_definitions
 from platecount.counting import small_boxes, tile_grid
 from platecount.meta.client import MetaClient
@@ -29,7 +30,8 @@ def make_state(tmp_path: Path, reply: str = SAM_DOT, dilution: int = -2, **kwarg
         cache_dir=tmp_path,
         transport=httpx.MockTransport(lambda _: httpx.Response(200, text=reply)),
     )
-    return PlateState(client, Image.new("RGB", (3000, 4000)), dilution, 1.0, **kwargs)
+    log = EventLog(tmp_path / "events.jsonl")
+    return PlateState(client, Image.new("RGB", (3000, 4000)), dilution, 1.0, log, **kwargs)
 
 
 def test_every_definition_is_flat_strict_and_closed():
@@ -161,3 +163,35 @@ def test_overlay_outlines_boxes():
     shown = Image.open(io.BytesIO(overlay_jpeg(img, [box(100, 100, 300)])))
     assert shown.getpixel((250, 100))[1] > 150  # top edge of the box
     assert shown.getpixel((250, 250)) == pytest.approx((0, 0, 0), abs=10)  # inside stays dark
+
+
+def test_every_call_is_logged_with_args_output_and_cost(tmp_path):
+    state = make_state(tmp_path)
+    result = run_tool(state, "segment_whole", "{}")
+    run_tool(state, "flag", '{"reason":"nonsense"}')  # refused calls are on record too
+    whole, refused = state.log.read()
+    assert (whole.tool, whole.args) == ("segment_whole", "{}")
+    assert whole.output == result.output
+    assert whole.cost_usd == pytest.approx(0.005)  # dot and speck, one image each
+    assert whole.ms >= 0
+    assert refused.tool == "flag"
+    assert refused.args == '{"reason":"nonsense"}'
+    assert refused.output["error"]
+    assert refused.cost_usd == 0
+    assert whole.input_hash != refused.input_hash
+
+
+def test_log_only_appends_and_holds_no_image(tmp_path):
+    state = make_state(tmp_path, colonies=[box(10, 10, 100)])
+    run_tool(state, "view_overlay", "{}")
+    first = state.log.path.read_text(encoding="utf-8")
+    run_tool(state, "view_overlay", "{}")
+    text = state.log.path.read_text(encoding="utf-8")
+    assert text.startswith(first)
+    assert len(text.splitlines()) == 2
+    assert len(text) < 1000
+
+
+def test_new_logs_are_separate_files(tmp_path):
+    assert EventLog.new("518", tmp_path).path != EventLog.new("518", tmp_path).path
+    assert EventLog(tmp_path / "none.jsonl").read() == []
