@@ -187,7 +187,11 @@ def run_agent(
     volume_ml: float,
     log: EventLog,
 ) -> AgentResult:
-    """Count one plate. ValueError covers every parse error: Spark, SAM and bad JSON."""
+    """Count one plate. Bad dilution or volume raises ValueError before any paid call.
+
+    Inside the loop, ValueError covers every parse error: Spark, SAM and bad JSON.
+    """
+    compute_cfu(0, float(10**dilution_exponent), volume_ml)  # the fallback couldn't survive these
     usd_before = client.cost.usd
     state = PlateState(client, img, dilution_exponent, volume_ml, log)
     try:

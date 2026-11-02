@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import httpx
+import pytest
 from PIL import Image
 
 from platecount.agent.events import EventLog
@@ -204,3 +205,15 @@ def test_rerun_of_the_same_plate_costs_nothing(tmp_path):
     second = Fake(tmp_path, script)
     assert second.run().report.cost_usd == 0
     assert second.client.cost.calls == 0
+
+
+@pytest.mark.parametrize(
+    "exponent, volume", [(2, 1.0), (-400, 1.0), (-2, 0.0), (-2, -1.0), (-2, float("nan"))]
+)
+def test_bad_dilution_or_volume_is_refused_before_any_paid_call(tmp_path, exponent, volume):
+    fake = Fake(tmp_path, [WHOLE, CFU, honest_finish])
+    img = Image.new("RGB", (300, 400))
+    with pytest.raises(ValueError):
+        run_agent(fake.client, img, exponent, volume, fake.log)
+    assert fake.client.cost.calls == 0
+    assert fake.log.read() == []
