@@ -5,6 +5,7 @@ Tiles are PIL crop boxes, (left, top, right, bottom) with right and bottom exclu
 """
 import math
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
 from PIL import Image
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ MERGE_IOU = 0.5
 MAX_MERGE_AREA_RATIO = 2.5
 GRID = 3
 OVERLAP = 0.2
+TILE_FROM = 56  # whole-image count from which a plate is tiled; fitted on the 16 dev plates
 
 Tile = tuple[int, int, int, int]
 
@@ -24,6 +26,13 @@ Tile = tuple[int, int, int, int]
 class MergeResult(BaseModel):
     colonies: list[SamInstance]  # best confidence first; nested boxes included
     nested: int  # how many colonies sit inside a much larger colony's box, for review
+
+
+class PlateCount(BaseModel):
+    merged: MergeResult
+    prompt_hits: dict[str, int]  # raw SAM instances per prompt, summed over tiles when tiled
+    path: Literal["whole", "tiled"]
+    reason: str
 
 
 def _area(box: SamInstance) -> int:
@@ -147,3 +156,51 @@ def merge_tiles(
         if not _on_border(box)
     ]
     return merge_prompts({"tiles": boxes})
+
+
+def _prompt_hits(
+    found: Sequence[Mapping[str, Sequence[SamInstance]]], prompts: Sequence[str]
+) -> dict[str, int]:
+    return {prompt: sum(len(one[prompt]) for one in found) for prompt in prompts}
+
+
+def count_whole(
+    client: MetaClient, img: Image.Image, prompts: Sequence[str] = DEFAULT_PROMPTS
+) -> PlateCount:
+    found = segment(client, encode_jpeg(img), prompts)
+    return PlateCount(
+        merged=merge_prompts(found),
+        prompt_hits=_prompt_hits([found], prompts),
+        path="whole",
+        reason="whole image requested",
+    )
+
+
+def count_tiled(
+    client: MetaClient, img: Image.Image, prompts: Sequence[str] = DEFAULT_PROMPTS
+) -> PlateCount:
+    found = segment_tiles(client, img, prompts)
+    return PlateCount(
+        merged=merge_tiles(tile_grid(*img.size), found, *img.size),
+        prompt_hits=_prompt_hits(found, prompts),
+        path="tiled",
+        reason="tiles requested",
+    )
+
+
+def count_plate(
+    client: MetaClient, img: Image.Image, prompts: Sequence[str] = DEFAULT_PROMPTS
+) -> PlateCount:
+    """Count the whole image, and tile only if that count says the plate is dense.
+
+    No minimum box size on tiled boxes: on the dev plates this path takes, 20 px cut 54
+    false boxes but lost 5 real colonies and raised MAE from 16.25 to 19.50.
+    """
+    whole = count_whole(client, img, prompts)
+    found = len(whole.merged.colonies)
+    if found < TILE_FROM:
+        return whole.model_copy(update={"reason": f"whole image found {found}, below {TILE_FROM}"})
+    tiled = count_tiled(client, img, prompts)
+    return tiled.model_copy(
+        update={"reason": f"whole image found {found}, at or above {TILE_FROM}"}
+    )

@@ -1,8 +1,12 @@
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
+from platecount import counting
 from platecount.counting import (
+    TILE_FROM,
+    count_plate,
     iou,
     is_candidate,
     merge_prompts,
@@ -192,3 +196,40 @@ def test_colony_cut_by_a_tile_edge_is_taken_from_the_tile_that_sees_it_whole():
 def test_size_limit_is_against_the_full_image_not_the_tile():
     big = tile_box(100, 100, 349, 349)  # 6.25% of the tile, 3.5% of the 1800 x 1000 image
     assert len(merge_tiles([TILE_A], [{"blob": [big]}], *FULL).colonies) == 1
+
+
+def fake_segment(calls: list[int], whole_boxes: int):
+    """The first call is the whole image, with separate boxes; every tile finds one box."""
+
+    def segment(client, jpeg, prompts):
+        calls.append(1)
+        n = whole_boxes if len(calls) == 1 else 1
+        boxes = [
+            box(10 + i % 10 * 80, 10 + i // 10 * 80, 29 + i % 10 * 80, 29 + i // 10 * 80)
+            for i in range(n)
+        ]
+        return {prompt: boxes for prompt in prompts}
+
+    return segment
+
+
+def test_plate_below_the_threshold_stays_whole_and_sends_no_tiles(monkeypatch):
+    calls: list[int] = []
+    monkeypatch.setattr(counting, "segment", fake_segment(calls, TILE_FROM - 1))
+    result = count_plate(None, Image.new("RGB", (1000, 1000)), ("dot", "speck"))
+    assert len(calls) == 1
+    assert result.path == "whole"
+    assert len(result.merged.colonies) == TILE_FROM - 1
+    assert result.prompt_hits == {"dot": TILE_FROM - 1, "speck": TILE_FROM - 1}
+    assert result.reason == "whole image found 55, below 56"
+
+
+def test_plate_at_the_threshold_is_tiled_and_reports_the_tiled_count(monkeypatch):
+    calls: list[int] = []
+    monkeypatch.setattr(counting, "segment", fake_segment(calls, TILE_FROM))
+    result = count_plate(None, Image.new("RGB", (1000, 1000)), ("dot", "speck"))
+    assert len(calls) == 10
+    assert result.path == "tiled"
+    assert result.prompt_hits == {"dot": 9, "speck": 9}
+    assert len(result.merged.colonies) == 9
+    assert result.reason == "whole image found 56, at or above 56"

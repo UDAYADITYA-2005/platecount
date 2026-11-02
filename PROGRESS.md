@@ -104,3 +104,7 @@ This file is part of the proof that all work happened during the hackathon.
   | 510 | 69 | 61 | 71 | 0.85 | 0.87 |
   | 518 | 298 | 63 | 256 | 0.96 | 0.83 |
   | 8386 | 24 | 18 | 53 | 0.09 | 0.21 |
+- count_plate() in counting.py: whole image first, tile when the whole count is >= 56, returns path and reason. bench.run
+  --variant policy, per-prompt and signed error columns back. 16 dev plates: MAE 6.19, sMAPE 13.4%, within 10% 37.5%,
+  precision 0.91, recall 0.87; threshold fitted on these same plates. No min-size filter: on the 4 tiled plates 20 px cut
+  54 false boxes but lost 5 real colonies, MAE 16.25 to 19.50. $0.0000, 0 API calls. pytest: 96 passed.

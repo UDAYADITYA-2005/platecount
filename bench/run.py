@@ -1,6 +1,6 @@
-"""Benchmark: whole-image and tiled SAM counts against AGAR counts and boxes.
+"""Benchmark: whole-image, tiled and policy SAM counts against AGAR counts and boxes.
 
-Usage: python -m bench.run --split dev --limit 16 --variant both
+Usage: python -m bench.run --split dev --limit 16 --variant policy
 """
 import argparse
 import json
@@ -11,9 +11,9 @@ from PIL import Image
 
 from bench.metrics import BoxScore, pool_scores, score_boxes, summarize
 from bench.split import SPLIT_PATH, count_band, load_labels, load_plates
-from platecount.counting import GRID, MergeResult, merge_prompts, merge_tiles, segment_tiles, tile_grid
+from platecount.counting import GRID, PlateCount, count_plate, count_tiled, count_whole
 from platecount.meta.client import MetaClient
-from platecount.meta.sam import DEFAULT_PROMPTS, USD_PER_IMAGE, encode_jpeg, load_image, segment
+from platecount.meta.sam import DEFAULT_PROMPTS, USD_PER_IMAGE, load_image
 
 BANDS = ("<15", "15-150", "151-300")
 
@@ -24,19 +24,12 @@ class PlateResult(NamedTuple):
     score: BoxScore
 
 
-def run_whole(client: MetaClient, img: Image.Image) -> MergeResult:
-    return merge_prompts(segment(client, encode_jpeg(img)))
-
-
-def run_tiled(client: MetaClient, img: Image.Image) -> MergeResult:
-    return merge_tiles(tile_grid(*img.size), segment_tiles(client, img), *img.size)
-
-
-VARIANTS: dict[str, Callable[[MetaClient, Image.Image], MergeResult]] = {
-    "whole": run_whole,
-    "tiled": run_tiled,
+VARIANTS: dict[str, Callable[[MetaClient, Image.Image], PlateCount]] = {
+    "whole": count_whole,
+    "tiled": count_tiled,
+    "policy": count_plate,
 }
-IMAGES_PER_PLATE = {"whole": 1, "tiled": GRID * GRID}
+IMAGES_PER_PLATE = {"whole": 1, "tiled": GRID * GRID, "policy": 1 + GRID * GRID}
 
 
 def row(cells: Sequence) -> str:
@@ -67,7 +60,7 @@ def main() -> None:
     parser.add_argument("--variant", choices=[*VARIANTS, "both"], default="whole")
     args = parser.parse_args()
 
-    variants = list(VARIANTS) if args.variant == "both" else [args.variant]
+    variants = ["whole", "tiled"] if args.variant == "both" else [args.variant]
     plate_ids = json.loads(SPLIT_PATH.read_text(encoding="utf-8"))[args.split][: args.limit]
     plates = load_plates()
     client = MetaClient.from_env()
@@ -75,7 +68,8 @@ def main() -> None:
     worst_case = images * len(DEFAULT_PROMPTS) * USD_PER_IMAGE
     print(f"{len(plate_ids)} {args.split} plates, at most ${worst_case:.4f} before cache hits")
 
-    columns = [f"{v[0]}_{col}" for v in variants for col in ("count", "prec", "rec")]
+    per_variant = (*DEFAULT_PROMPTS, "count", "err", "prec", "rec", "path")
+    columns = [f"{v[0]}_{col}" for v in variants for col in per_variant]
     print(row(["plate", "true", *columns]))
     results: dict[str, list[PlateResult]] = {variant: [] for variant in variants}
     for plate_id in plate_ids:
@@ -84,10 +78,15 @@ def main() -> None:
         labels = load_labels(plate, *img.size)
         cells: list = [plate_id, plate.true_count]
         for variant in variants:
-            colonies = VARIANTS[variant](client, img).colonies
+            counted = VARIANTS[variant](client, img)
+            colonies = counted.merged.colonies
             score = score_boxes(colonies, labels, *img.size)
             results[variant].append(PlateResult(plate.true_count, len(colonies), score))
-            cells += [len(colonies), ratio(score.precision), ratio(score.recall)]
+            hits = [counted.prompt_hits[prompt] for prompt in DEFAULT_PROMPTS]
+            error = f"{len(colonies) - plate.true_count:+d}"
+            cells += [
+                *hits, len(colonies), error, ratio(score.precision), ratio(score.recall), counted.path
+            ]
         print(row(cells), flush=True)
 
     for variant in variants:
