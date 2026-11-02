@@ -59,10 +59,10 @@ def load_image(path: Path) -> Image.Image:
     return ImageOps.exif_transpose(Image.open(path)).convert("RGB")
 
 
-def encode_jpeg(img: Image.Image) -> bytes:
-    """Return a JPEG with the longest side at most MAX_SIDE and no EXIF."""
+def encode_jpeg(img: Image.Image, max_side: int = MAX_SIDE) -> bytes:
+    """Return a JPEG with the longest side at most max_side and no EXIF."""
     img = img.copy()
-    img.thumbnail((MAX_SIDE, MAX_SIDE))
+    img.thumbnail((max_side, max_side))
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=90)
     return buf.getvalue()

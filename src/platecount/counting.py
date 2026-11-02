@@ -4,6 +4,7 @@ Box coordinates are inclusive pixels: a box from x1=0 to x2=9 is 10 pixels wide.
 Tiles are PIL crop boxes, (left, top, right, bottom) with right and bottom exclusive.
 """
 import math
+import statistics
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
@@ -18,6 +19,7 @@ MERGE_IOU = 0.5
 MAX_MERGE_AREA_RATIO = 2.5
 GRID = 3
 OVERLAP = 0.2
+SMALL_FRACTION = 0.25  # of the median side; on dev these are mostly specks, 9 of 42 were real
 TILE_FROM = 56  # whole-image count from which a plate is tiled; fitted on the 16 dev plates
 
 Tile = tuple[int, int, int, int]
@@ -93,6 +95,20 @@ def merge_prompts(by_prompt: Mapping[str, Sequence[SamInstance]]) -> MergeResult
             kept.append(box)
     nested = sum(any(is_nested(box, other) for other in kept) for box in kept)
     return MergeResult(colonies=kept, nested=nested)
+
+
+def _side(box: SamInstance) -> float:
+    return math.sqrt(_area(box))
+
+
+def median_side(colonies: Sequence[SamInstance]) -> float:
+    return statistics.median(map(_side, colonies)) if colonies else 0.0
+
+
+def small_boxes(colonies: Sequence[SamInstance]) -> list[SamInstance]:
+    """Boxes under SMALL_FRACTION of the median side. All boxes must share one image scale."""
+    limit = SMALL_FRACTION * median_side(colonies)
+    return [box for box in colonies if _side(box) < limit]
 
 
 def _spans(length: int) -> list[tuple[int, int]]:
