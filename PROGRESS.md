@@ -159,3 +159,7 @@ This file is part of the proof that all work happened during the hackathon.
   Rate limit key is CF-Connecting-IP, then the last X-Forwarded-For entry, only with TRUST_PROXY=1 (uvicorn on Render trusts the forgeable leftmost entry). GET /healthz added.
   Peak working set on Windows: cached plate 518 248 MB, 4000x3000 upload 244 MB, 50 MP phone JPEG 230 MB (flat 49 MP was 680 MB before the fix), largest allowed PNG 293 MB, 2 parallel 406 -> 249 MB.
   One plate runs at a time, 4 in line at most, 24 MP decoded. 4th demo plate not added: data/test_plate.jpg has no known licence or author.
+
+- Tue Nov 3, IST: README written for judges: pitch, demo link, how it works with a Mermaid diagram, eval-v1 test results with 95% CIs and limits,
+  model roles, run and reproduce steps, privacy, AGAR credit. /ship-check: pytest 235 passed. Blockers fixed: only the "Built during the hackathon" section.
+  Open: demo video link (Wed); the daily spend cap file is on Render's ephemeral disk, so a redeploy resets it (Meta's $60 limit is the backstop).
