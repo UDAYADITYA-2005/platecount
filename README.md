@@ -17,15 +17,43 @@ Code from a pilot made before the event was not reused. [PROGRESS.md](PROGRESS.m
 
 ## The problem
 
-Microbiology labs still count colonies on agar plates by eye. A tech counts each plate with a pen and a
-clicker, then converts the count to CFU/mL by hand. On a busy day that means hundreds of plates.
-The work is slow and tiring, and two people often get different counts for the same plate.
-Simple "count the blobs" tools give you one number and no way to check it: you can't tell whether
-they missed half the plate or counted glare.
+Counting colonies on an agar plate is a routine lab task, and it is often still done by eye: a person
+marks each colony, then converts the count to CFU/mL.
+
+- **It takes time.** One evaluation found manual counting took a mean of 70 s per plate. It called the job
+  "tedious and time-consuming" ([Heuser et al., 2023, *Microbiology Spectrum*](https://doi.org/10.1128/spectrum.00673-23)).
+- **Trained readers disagree.** In one study, panels of three microbiologists independently read urine
+  cultures, sorting growth into only four levels. On blood agar, 1,666 of 30,231 readings (5.5%) still
+  differed from the panel's consensus
+  ([Glasson et al., 2016, *J Clin Microbiol*](https://doi.org/10.1128/JCM.01380-16)). The authors work for
+  a company that makes an imaging device.
+- **Fully automatic counting can be inaccurate.** The 2023 study found fully automatic counts had low accuracy,
+  "especially for plates with very high or very low colony numbers". Once a person corrected them, they
+  saved no time.
+
+A tool that gives one number gives you no way to check it. You can't tell whether it missed colonies or
+counted glare.
 
 PlateCount shows how it got each count. It records every step, shows an outline overlay, and refuses
 to report a number it can't trace to a tool output. It also flags plates a person should look at.
 It reports a lab measurement for a person to review. It gives no medical or food-safety advice.
+
+## Who it's for
+
+- Quality-control labs that run plate counts on food, water and pharmaceutical samples
+- Teaching labs where students learn to count plates and calculate CFU/mL
+
+It is not for clinical use. It makes no diagnosis or health judgement. It reports a count for a
+person to review.
+
+## What's next
+
+- **Accuracy on dense plates.** The held-out test had no plate above 130 colonies. On the one dense dev plate,
+  the count was 256 against a true 298. That needs more dense plates and a better tiling step.
+- **Dilution series.** Right now each plate is counted on its own. The next step is to take several plates
+  from one serial dilution and report one CFU/mL from the plates in the countable range.
+- **Validation with a real lab.** Every number above comes from the AGAR dataset. The next test is plates
+  photographed and hand-counted by a working lab, on their phones and under their lighting.
 
 ## How it works
 

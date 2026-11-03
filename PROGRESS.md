@@ -163,3 +163,5 @@ This file is part of the proof that all work happened during the hackathon.
 - Tue Nov 3, IST: README written for judges: pitch, demo link, how it works with a Mermaid diagram, eval-v1 test results with 95% CIs and limits,
   model roles, run and reproduce steps, privacy, AGAR credit. /ship-check: pytest 235 passed. Blockers fixed: only the "Built during the hackathon" section.
   Open: demo video link (Wed); the daily spend cap file is on Render's ephemeral disk, so a redeploy resets it (Meta's $60 limit is the backstop).
+- Tue Nov 3, IST: README "The problem" now cites its sources, checked against the full text: Heuser et al. 2023 (70 s mean manual count per plate)
+  and Glasson et al. 2016 (5.5% of blood-agar readings off consensus). Claims without a source were cut. Added "Who it's for" and "What's next". No code change.
