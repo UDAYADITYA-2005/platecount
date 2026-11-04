@@ -1,4 +1,4 @@
-"""The web API over run_agent. Visitor photos stay in memory; see .claude/rules/data.md.
+"""The web API over run_agent. Visitor photos stay in memory.
 
 The photo is the raw request body, not multipart: Starlette spools multipart uploads over
 1 MB to a temp file on disk. Everything a run writes (SAM cache, event log) goes in a temp

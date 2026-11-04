@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 Write-Host "1/5 Checking tools..."
 foreach ($cmd in @("python", "git")) {
   if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-    Write-Host "Missing: $cmd. Install it (see SETUP.md step 1), open a new PowerShell, rerun." -ForegroundColor Red
+    Write-Host "Missing: $cmd. Install it, open a new PowerShell, rerun." -ForegroundColor Red
     exit 1
   }
 }
@@ -24,11 +24,11 @@ if (-not (Test-Path ".git")) {
   git init -b main | Out-Null
   git config core.hooksPath scripts/hooks
   git add -A
-  git commit -m "Start PlateCount from Claude Code kit" | Out-Null
+  git commit -m "Start PlateCount" | Out-Null
 }
 
 git config core.hooksPath scripts/hooks
 Write-Host "Commit guard on: images, data/ and .env are blocked from commits."
 Write-Host "5/5 Done." -ForegroundColor Green
 Write-Host "Next: open .env in Notepad and paste your key after MODEL_API_KEY="
-Write-Host "Then run:  .\.venv\Scripts\Activate.ps1   and then:  claude"
+Write-Host "Then run:  .\.venv\Scripts\Activate.ps1"

@@ -2,7 +2,7 @@
 # PlateCount project setup for macOS / Linux / WSL. Run from inside the project folder: bash setup.sh
 set -euo pipefail
 for cmd in python3 git; do
-  command -v "$cmd" >/dev/null || { echo "Missing: $cmd (see SETUP.md step 1)"; exit 1; }
+  command -v "$cmd" >/dev/null || { echo "Missing: $cmd"; exit 1; }
 done
 python3 --version
 [ -d .venv ] || python3 -m venv .venv
@@ -14,8 +14,8 @@ if [ ! -d .git ]; then
   git config core.hooksPath scripts/hooks
   chmod +x scripts/hooks/pre-commit
   git add -A
-  git commit -m "Start PlateCount from Claude Code kit" >/dev/null
+  git commit -m "Start PlateCount" >/dev/null
 fi
 git config core.hooksPath scripts/hooks
 echo "Commit guard on: images, data/ and .env are blocked from commits."
-echo "Done. Put your key in .env (MODEL_API_KEY=...), then: source .venv/bin/activate && claude"
+echo "Done. Put your key in .env (MODEL_API_KEY=...), then: source .venv/bin/activate"

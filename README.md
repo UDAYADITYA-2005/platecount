@@ -187,5 +187,3 @@ Open http://localhost:8000. Optional environment variables: `DAILY_USD` (spend c
   NeuroSYS, licensed **CC BY-NC 2.0**. It is used here for non-commercial benchmarking only, and no AGAR
   files are in this repository.
 - Counting rules follow the FDA *Bacteriological Analytical Manual*, Chapter 3 (revised March 2025).
-- **Built with [Claude Code](https://claude.com/claude-code).** The project rules (`CLAUDE.md`), plan,
-  subagents and skills are in `.claude/`.

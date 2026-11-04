@@ -20,7 +20,7 @@ from platecount.meta.client import MetaClient
 from platecount.meta.sam import DEFAULT_PROMPTS, USD_PER_IMAGE, load_image
 
 BANDS = ("<15", "15-150", "151-300")
-MAX_RUN_USD = 5.0  # CLAUDE.md: a single run must not exceed this without asking
+MAX_RUN_USD = 5.0  # project rule: a single run must not exceed this without asking
 # AGAR records no dilutions. Only the count is scored; these just run the full report path.
 NOMINAL_EXPONENT = -2
 NOMINAL_ML = 1.0
@@ -120,7 +120,7 @@ def main() -> None:
     client = MetaClient.from_env()
     try:
         run(args, client)
-    finally:  # also on the budget stop and on a crash: CLAUDE.md wants it after every run
+    finally:  # also on the budget stop and on a crash: printed after every run
         print(client.cost.summary())
 
 

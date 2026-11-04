@@ -4,13 +4,13 @@ Append only. Each entry: date and time (IST), what was built, any number it prod
 This file is part of the proof that all work happened during the hackathon.
 
 ## 2026-10-30
-- Project created from the PlateCount Claude Code kit. No feature code yet.
+- Project created from the PlateCount project starter kit. No feature code yet.
 
 ## 2026-11-01
 - 17:03 IST, Gate A check (due 23:00): FAIL. 0 of 10 plates counted: no src/ code, 0 AGAR images,
   no SAM fixture, pytest collected 0 tests. Also found: venv is Python 3.10.11 (3.11+ required),
   no git remote, scripts/get_agar.py missing. .env exists; key contents not checked.
-- 17:17 IST, package scaffold: empty modules for the CLAUDE.md layout, pyproject.toml, exact pins in
+- 17:17 IST, package scaffold: empty modules for the planned layout, pyproject.toml, exact pins in
   requirements.txt, Python rule changed to 3.10+. No feature code. pytest: 1 passed (imports every module).
 - 17:24 IST, cfu.py: compute_cfu and FDA range/spreader flags, exact fractions so no float noise reaches
   the verifier. 27 colonies at 10^-2 with 1 mL -> 2,700.0 CFU/mL. pytest: 19 passed (tests/test_cfu.py + smoke).
