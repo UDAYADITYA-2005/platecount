@@ -9,11 +9,16 @@
 <body>
   <main>
     <header>
-      <h1>PlateCount</h1>
-      <p class="muted">Colony count and CFU/mL estimate from an agar plate photo, for a person to review.</p>
+      <p class="brand">PlateCount</p>
     </header>
 
     <section id="upload">
+      <h1>Count bacterial colonies from a photo of an agar plate</h1>
+      <ol class="how">
+        <li><span>1</span>Photograph the plate</li>
+        <li><span>2</span>The AI agent counts and checks itself</li>
+        <li><span>3</span>Get count + CFU/mL with flags</li>
+      </ol>
       <p id="error" class="error" role="alert" hidden></p>
       <div class="fields">
         <label>Dilution
@@ -53,6 +58,12 @@
         <div><span class="label">Colony count</span><strong id="count"></strong></div>
         <div><span id="cfu-label" class="label">CFU/mL estimate</span><strong id="cfu"></strong></div>
       </div>
+      <ul class="key small">
+        <li><b>Green boxes:</b> each one is a colony the count includes.</li>
+        <li><b>Yellow grid labels</b> (r0c0 to r2c2, where shown): row and column of the 9 cells the agent can recheck one by one.</li>
+        <li><b>Verified:</b> a checker compared every number above with the logged tool outputs. Any number no tool produced is rejected.</li>
+        <li><b>Blank dilution or volume:</b> undiluted and 1 mL were assumed (demo plates use the values noted below).</li>
+      </ul>
       <p id="notes" class="muted small"></p>
       <div id="flags-block" hidden>
         <h2>For review</h2>

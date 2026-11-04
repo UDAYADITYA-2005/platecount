@@ -45,7 +45,33 @@ main {
   padding: 16px;
 }
 
-h1 { margin: 0; font-size: 1.6rem; }
+h1 { margin: 8px 0 0; font-size: 1.35rem; line-height: 1.25; }
+.brand { margin: 0; font-weight: 700; color: var(--accent); }
+
+.how { display: grid; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+.how li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+.how span {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.key { margin: 12px 0 0; padding-left: 20px; }
+.key li { margin-bottom: 6px; }
 h2 { margin: 24px 0 8px; font-size: 1.05rem; }
 p { margin: 8px 0; }
 a { color: var(--accent); }

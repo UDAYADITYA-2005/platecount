@@ -165,3 +165,6 @@ This file is part of the proof that all work happened during the hackathon.
   Open: demo video link (Wed); the daily spend cap file is on Render's ephemeral disk, so a redeploy resets it (Meta's $60 limit is the backstop).
 - Tue Nov 3, IST: README "The problem" now cites its sources, checked against the full text: Heuser et al. 2023 (70 s mean manual count per plate)
   and Glasson et al. 2016 (5.5% of blood-agar readings off consensus). Claims without a source were cut. Added "Who it's for" and "What's next". No code change.
+- Wed Nov 4, IST: web/ clarity pass. Upload screen: one-line headline, 3-step strip, then buttons (privacy line unchanged). Result screen: captions for
+  green boxes, r0c0-r2c2 grid labels, "Verified" and assumed dilution/volume. Demo buttons show density + AGAR true count (6 / 56 / 298).
+  No app.js change. pytest: 235 passed. Headless Chrome at 360 px: scrollWidth 360 on upload and result screens.
